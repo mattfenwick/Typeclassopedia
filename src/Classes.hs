@@ -8,20 +8,14 @@ module Classes (
 
   , Applicative'
   , (<*>)
-
-  , Alternative'
-  , empty
+  
+  , Semigroup'
   , (<|>)
-  , guard
-
-  , Alt'
-  , fempty
-  , (<<>>)
 
   , Monoid'
-  , mempty
-  , mappend
+  , empty
   , mconcat
+  , guard
 
   , Monad'
   , join
@@ -48,45 +42,27 @@ class Comonad' m where
 -}
 
 
-class Monoid' a where
-  mempty  :: a
-  mappend :: a -> a -> a
+class Semigroup' a where
+  (<|>)  :: a -> a -> a
+
+
+class (Semigroup' a) => Monoid' a where
+  empty :: a
 
   
 class (Functor' f) => Applicative' f where
   (<*>) :: f (a -> b) -> f a -> f b
 
-
--- why do we need the Applicative' constraint?
--- why not just: (<|>) :: a -> a -> a ??
-class (Applicative' f) => Alternative' f where
-  empty :: f a
-  (<|>) :: f a -> f a -> f a
-
-
-class Alt' a where
-  fempty :: a
-  (<<>>) :: a -> a -> a
-  
   
 class (Applicative' m) => Monad' m where
   join :: m (m a) -> m a
-
-
--- wait ... if it's a Monad, 
---   and it's an alternative, then
---   isn't it automatically a MonadPlus?
--- i.e. (Alternative' m, Monad' m) => ...
-class (Monad' m) => MonadPlus' m where
-  mzero :: m a
-  mplus :: m a -> m a -> m a
   
   
 -- -------------------------------
 -- some more combinators
 
 mconcat :: Monoid' a => [a] -> a
-mconcat = foldr mappend mempty
+mconcat = foldr (<|>) empty
 
 
 (>>=) :: Monad' m => m a -> (a -> m b) -> m b  
@@ -97,13 +73,40 @@ m >>= f = join (fmap f m)
 m >> f = m >>= const f
 
 
-guard :: (Pointed' m, Alternative' m) => Bool -> m ()
+guard :: (Pointed' m, Monoid' (m ())) => Bool -> m ()
 guard True = pure ()
 guard False = empty
   
   
 -- -------------------------------
 -- some instances
+
+
+instance Functor' ((,) a) where
+  fmap f (x, y) = (x, f y)
+  
+  
+
+
+data Id a = Id a deriving (Show, Eq, Ord)
+
+instance Functor' Id where
+  fmap f (Id x) = Id (f x)
+  
+  
+instance Pointed' Id where
+  pure = Id
+  
+  
+instance Applicative' Id where
+  Id f <*> Id x = Id (f x)
+  
+  
+instance Monad' Id where
+  join (Id (Id x)) = Id x
+  
+  
+
 
 instance Functor' [] where
   fmap _ []       = []
@@ -112,42 +115,23 @@ instance Functor' [] where
   
 instance Pointed' [] where
   pure x = [x]
+  
+  
+instance Semigroup' [a] where
+  (<|>) = (++)
 
 
 instance Monoid' [a] where
-  mempty = []
-  mappend = (++)
+  empty = []
   
   
 instance Applicative' [] where
   fs <*> xs = concat $ fmap (\f -> fmap f xs) fs
 
 
-instance Alternative' [] where
-  empty = []
-  (<|>) = (++)
-
-
-instance Alt' [a] where
-  fempty = []
-  (<<>>) = (++)
-
-
 instance Monad' [] where
   join = concat
 
-
-instance MonadPlus' [] where
-  mzero = []
-  mplus = (++)
-
-
-
-instance Alt' Bool where
-  fempty = False
-  False <<>> x = x
-  x <<>> _     = x
-  
 
   
   
@@ -171,14 +155,24 @@ instance Monad' IO where
 instance Functor' Maybe where
   fmap _ Nothing = Nothing
   fmap f (Just x) = Just (f x)
+  
+  
+instance Semigroup' (Maybe a) where
+  Just x  <|>  _  = Just x
+  Nothing <|>  y  = y
+  
+  
+instance Monoid' (Maybe a) where
+  empty           = Nothing
 
-
+{-
+-- I'm not sure whether this instance makes any sense to me
 instance Monoid' a => Monoid' (Maybe a) where
-  mempty = Nothing
-  Nothing `mappend` b = b
-  a `mappend` Nothing = a
-  (Just a) `mappend` (Just b) = Just (a `mappend` b)
-
+  empty                 = Nothing
+  Nothing  <|> b        = b
+  a        <|> Nothing  = a
+  (Just a) <|> (Just b) = Just (a <|> b)
+-}
 
 instance Pointed' Maybe where
   pure = Just
@@ -190,15 +184,19 @@ instance Applicative' Maybe where
   (Just f) <*> (Just x) = Just (f x)
 
 
-instance Alternative' Maybe where
-  empty = Nothing
-  Nothing <|> x = x
-  x <|> _       = x
-
-
 instance Monad' Maybe where
   join (Just (Just x))  = Just x
   join      _           = Nothing
+  
+  
+  
+  
+instance Semigroup' () where
+  _ <|> _ = ()
+
+
+instance Monoid' () where
+  empty   = ()
 
 
 
