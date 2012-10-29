@@ -123,7 +123,7 @@ instance Functor' ((,) a) where
   fmap f (x, y) = (x, f y)
 
 instance (Semigroup' z) => Applicative' ((,) z) where
-  (x1, f) <*> (x2, y) = (x1 <|> x2, f y)
+  (x1, f) <*> (x2, y) = (x1 <|> x2, f y) -- fmap f (x1 <|> x2, y)
 
 instance (Monoid' z) => Pointed' ((,) z) where
   pure x = (empty, x)
