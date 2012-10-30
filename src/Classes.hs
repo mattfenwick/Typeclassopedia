@@ -23,6 +23,10 @@ module Classes (
   , empty
   , mconcat
   , guard
+  , liftA2
+  
+  , Switch'
+  , switch
 
 ) where
 
@@ -46,6 +50,10 @@ class Pointed' f where
 class (Applicative' m, Pointed' m) => Monad' m where
   join :: m (m a) -> m a
   
+  
+class Switch' f where
+  switch :: f a -> f ()
+
   
 {-  
 class Comonad' m where
@@ -78,6 +86,10 @@ m >> f = m >>= const f
 guard :: (Pointed' m, Monoid' (m ())) => Bool -> m ()
 guard True = pure ()
 guard False = empty
+
+
+liftA2 :: Applicative' f => (a -> b -> c) -> f a -> f b -> f c
+liftA2 f a1 a2 = fmap f a1 <*> a2
   
   
 -- -------------------------------
@@ -159,6 +171,10 @@ instance Semigroup' [a] where
 instance Monoid' [a] where
   empty = []
   
+instance Switch' [] where
+  switch []     = [()]
+  switch (_:_)  = []
+  
   
   
   
@@ -183,6 +199,10 @@ instance Semigroup' (Maybe a) where
  
 instance Monoid' (Maybe a) where
   empty           = Nothing
+  
+instance Switch' Maybe where
+  switch Nothing   = Just ()
+  switch (Just _)  = Nothing
 
 
 
