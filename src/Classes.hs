@@ -5,43 +5,43 @@ module Classes (
 
   , Applicative'
   , (<*>)
+  , liftA2
 
   , Pointed'
   , pure
-  
-  , Copointed'
-  , extract
   
   , Monad'
   , join
   , (>>=)
   , (>>)
   
+  , Copointed'
+  , extract
+  
   , Comonad'
   , duplicate
+  , extend
 
   , Semigroup'
   , (<|>)
 
   , Monoid'
   , empty
-  
   , mconcat
   , guard
-  , liftA2
   
   , Switch'
   , switch
 
   , Foldable'
   , foldr
-
   , foldMap
   , fold
   , foldl
   
   , Traversable'
   , commute
+  , traverse
 
 ) where
 
@@ -64,13 +64,12 @@ class Pointed' f where
   pure :: a -> f a
   
 
--- why does this need to be a subclass of Functor'?
-class Copointed' f where
-  extract :: f a -> a
-  
-
 class (Applicative' m, Pointed' m) => Monad' m where
   join :: m (m a) -> m a
+  
+
+class Functor' f => Copointed' f where
+  extract :: f a -> a
 
   
 class Copointed' w => Comonad' w where
@@ -94,16 +93,17 @@ class Foldable' t where
   
   
 class (Functor' t, Foldable' t) => Traversable' t where
-  -- decided to call this 'commute' instead of 'sequenceA'
-  --   because it's not a false cognate with 'sequence'
+  -- call this 'commute' instead of 'sequenceA'
+  --   so that it's not a false cognate with 'sequence'
   commute :: (Pointed' f, Applicative' f) => t (f a) -> f (t a)
   
   
 -- -------------------------------
 -- some more combinators
 
-mconcat :: Monoid' a => [a] -> a
-mconcat = Prelude.foldr (<|>) empty
+
+liftA2 :: Applicative' f => (a -> b -> c) -> f a -> f b -> f c
+liftA2 f a1 a2 = fmap f a1 <*> a2
 
 
 (>>=) :: Monad' m => m a -> (a -> m b) -> m b  
@@ -114,13 +114,17 @@ m >>= f = join (fmap f m)
 m >> f = m >>= const f
 
 
+extend :: Comonad' w => (w a -> b) -> w a -> w b
+extend f = fmap f . duplicate
+
+
+mconcat :: Monoid' a => [a] -> a
+mconcat = Prelude.foldr (<|>) empty
+
+
 guard :: (Pointed' m, Monoid' (m ())) => Bool -> m ()
 guard True = pure ()
 guard False = empty
-
-
-liftA2 :: Applicative' f => (a -> b -> c) -> f a -> f b -> f c
-liftA2 f a1 a2 = fmap f a1 <*> a2
 
 
 foldl :: Foldable' t => (b -> a -> b) -> b -> t a -> b
@@ -135,6 +139,5 @@ fold :: (Foldable' t, Monoid' m) => t m -> m
 fold = foldr (<|>) empty
 
 
-
-
-
+traverse :: (Pointed' f, Applicative' f, Traversable' t) => (a -> f b) -> t a -> f (t b)
+traverse f = commute . fmap f

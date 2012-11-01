@@ -1,11 +1,14 @@
 module Datums (
 
     BinTree (..)
+  , showBinTree
+  
+  , Id (..)
     
   , Product (Product)
   , unProduct
   
-  , Id (..)
+  , Seq (..)
   
   , Tree (Tree)
   , root
@@ -36,11 +39,20 @@ newtype Product a
   deriving (Show, Eq, Ord)
   
   
+  
+data Seq a
+    = End a
+    | Cons a (Seq a)
+  deriving (Show, Eq, Ord)
+  
+  
 
 data Tree a = Tree {
       root     :: a,
       branches :: [Tree a]
   } deriving (Show, Eq, Ord)
+  
+  
   
 showTree :: Show a => Tree a -> String
 showTree t = help t 0
@@ -48,3 +60,10 @@ showTree t = help t 0
     help :: (Show b) => Tree b -> Int -> String
     help (Tree x bs) n = concat $ intersperse "\n" (show x : map (branch n) bs)
     branch n br = replicate n ' ' ++ "- " ++ help br (n + 1)
+  
+showBinTree :: Show a => BinTree a -> String
+showBinTree t = help 0 t
+  where 
+    help :: Show b => Int -> BinTree b -> String
+    help n (Leaf x)    = replicate n ' ' ++ show x
+    help n (Node l r)  = concat $ intersperse "\n" ((replicate n ' ' ++ "--") : map (help (n + 1)) [l, r])

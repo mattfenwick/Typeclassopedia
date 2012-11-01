@@ -50,16 +50,16 @@ instance Functor' ((,) a) where
   fmap f (x, y) = (x, f y)
 
 instance (Semigroup' z) => Applicative' ((,) z) where
-  (x1, f) <*> (x2, y) = (x1 <|> x2, f y) -- fmap f (x1 <|> x2, y)
+  (x1, f) <*> (x2, y) = (x1 <|> x2, f y)
 
 instance (Monoid' z) => Pointed' ((,) z) where
   pure x = (empty, x)
-  
-instance Copointed' ((,) z) where
-  extract = snd
 
 instance (Monoid' z) => Monad' ((,) z) where
   join (x1, (x2, a)) = (x1 <|> x2, a)
+  
+instance Copointed' ((,) z) where
+  extract = snd
   
 instance Comonad' ((,) z) where
   duplicate (x, y) = (x, (x, y))
@@ -70,19 +70,25 @@ instance (Semigroup' a, Semigroup' b) => Semigroup' (a, b) where
 instance (Monoid' a, Monoid' b) => Monoid' (a, b) where
   empty = (empty, empty)
   
+instance Foldable' ((,) z) where
+  foldr f base (_, x) = f x base
   
+instance Traversable' ((,) z) where
+  commute (z, y) = fmap ((,) z) y
+
+
 
 
 instance Functor' [] where
   fmap _ []       = []
   fmap f (x:xs)   = f x : fmap f xs
-  
+
 instance Applicative' [] where
   fs <*> xs = concat $ fmap (\f -> fmap f xs) fs
 
 instance Pointed' [] where
   pure x = [x]
-  
+
 instance Monad' [] where
   join = concat
 
@@ -91,18 +97,56 @@ instance Semigroup' [a] where
 
 instance Monoid' [a] where
   empty = []
-  
+
 instance Switch' [] where
   switch []     = [()]
-  switch (_:_)  = []  
-  
+  switch (_:_)  = []
+
 instance Foldable' [] where
   foldr _ base []       = base
   foldr f base (x:xs)   = f x (foldr f base xs)
   
 instance Traversable' [] where
   commute []       = pure []
-  commute (f:fs)   = fmap (:) f <*> commute fs 
+  commute (f:fs)   = fmap (:) f <*> commute fs
+
+
+
+
+instance Functor' Seq where
+  fmap f (End x)         = End (f x)
+  fmap f (Cons x rest)   = Cons (f x) (fmap f rest)
+  
+instance Applicative' Seq where
+  fs <*> xs = join $ fmap (\f -> fmap f xs) fs
+  
+instance Pointed' Seq where
+  pure = End
+  
+instance Monad' Seq where
+  join (Cons (End x) rest)          = Cons x (join rest)
+  join (Cons (Cons x rest1) rest2)  = Cons x (join (Cons rest1 rest2))
+  join (End xs)                     = xs
+  
+instance Copointed' Seq where
+  extract (End x)      = x
+  extract (Cons x _)   = x
+
+instance Comonad' Seq where
+  duplicate xs = fmap (const xs) xs
+
+instance Semigroup' (Seq a) where
+  (End x)   <|> ys = Cons x ys
+  Cons x xs <|> ys = Cons x (xs <|> ys)
+
+instance Foldable' Seq where
+  foldr f base (End x)     = f x base
+  foldr f base (Cons x xs) = f x (foldr f base xs)
+
+instance Traversable' Seq where
+  commute (End x)     = fmap pure x
+  commute (Cons x xs) = fmap Cons x <*> commute xs
+
   
   
   
@@ -184,11 +228,11 @@ instance Applicative' Id where
 instance Pointed' Id where
   pure = Id
   
-instance Copointed' Id where
-  extract (Id x) = x
-  
 instance Monad' Id where
   join (Id (Id x)) = Id x
+  
+instance Copointed' Id where
+  extract (Id x) = x
   
 instance Comonad' Id where
   duplicate (Id x) = Id (Id x)
@@ -230,13 +274,40 @@ instance Functor' BinTree where
   fmap f (Leaf x)          = Leaf (f x)
   fmap f (Node left right) = Node (fmap f left) (fmap f right)
   
+instance Applicative' BinTree where
+  (Leaf f)   <*> (Leaf x)     = Leaf (f x)
+  (Leaf f)   <*> (Node y z)   = Node (Leaf f <*> y) (Leaf f <*> z)
+  (Node g h) <*> (Leaf x)     = Node (g <*> Leaf x) (h <*> Leaf x)
+  (Node g h) <*> (Node y z)   = Node (g <*> y) (h <*> z)
+  
 instance Pointed' BinTree where
   pure = Leaf
+
+instance Monad' BinTree where
+  join (Leaf y)     = y
+  join (Node l r)   = Node (join l) (join r)
+  
+-- this is left biased
+instance Copointed' BinTree where
+  extract (Leaf x)     = x
+  extract (Node l _)   = extract l
+  
+instance Comonad' BinTree where
+  duplicate bt   = fmap (const bt) bt
+
+-- I can think of 3 ways to make this a semi-group (well, 2 after reflection):
+--   1. take the bigger/smaller subtree
+--   2. take the left/right subtree
+--   3. take both subtrees, putting the left on the left/right
   
 instance Foldable' BinTree where
   foldr f base (Leaf x) = f x base
   foldr f base (Node left right) = let base' = foldr f base right
                                    in foldr f base' left
+
+instance Traversable' BinTree where
+  commute (Leaf x)    = fmap Leaf x 
+  commute (Node l r)  = fmap Node (commute l) <*> (commute r)
 
 
 
