@@ -54,9 +54,15 @@ instance (Semigroup' z) => Applicative' ((,) z) where
 
 instance (Monoid' z) => Pointed' ((,) z) where
   pure x = (empty, x)
+  
+instance Copointed' ((,) z) where
+  extract = snd
 
 instance (Monoid' z) => Monad' ((,) z) where
   join (x1, (x2, a)) = (x1 <|> x2, a)
+  
+instance Comonad' ((,) z) where
+  duplicate (x, y) = (x, (x, y))
 
 instance (Semigroup' a, Semigroup' b) => Semigroup' (a, b) where
   (x1, y1) <|> (x2, y2) = (x1 <|> x2, y1 <|> y2)
@@ -91,8 +97,12 @@ instance Switch' [] where
   switch (_:_)  = []  
   
 instance Foldable' [] where
-  foldr _ base [] = base
-  foldr f base (x:xs) = f x (foldr f base xs)
+  foldr _ base []       = base
+  foldr f base (x:xs)   = f x (foldr f base xs)
+  
+instance Traversable' [] where
+  commute []       = pure []
+  commute (f:fs)   = fmap (:) f <*> commute fs 
   
   
   
@@ -125,6 +135,10 @@ instance Switch' Maybe where
 instance Foldable' Maybe where
   foldr _ base Nothing = base
   foldr f base (Just x) = f x base
+  
+instance Traversable' Maybe where
+  commute Nothing  = pure Nothing
+  commute (Just x) = fmap Just x
 
 
 
@@ -153,6 +167,10 @@ instance Semigroup' (Either a b) where
 instance Foldable' (Either a) where
   foldr _ base (Left _) = base
   foldr f base (Right x) = f x base
+  
+instance Traversable' (Either m) where
+  commute (Left y)  = pure (Left y)
+  commute (Right x) = fmap Right x
 
 
 
@@ -166,11 +184,20 @@ instance Applicative' Id where
 instance Pointed' Id where
   pure = Id
   
+instance Copointed' Id where
+  extract (Id x) = x
+  
 instance Monad' Id where
   join (Id (Id x)) = Id x
   
+instance Comonad' Id where
+  duplicate (Id x) = Id (Id x)
+  
 instance Foldable' Id where
   foldr f base (Id x) = f x base
+  
+instance Traversable' Id where
+  commute (Id x) = fmap Id x
 
 
 
@@ -195,5 +222,29 @@ instance (Num a) => Semigroup' (Product a) where
 
 instance (Num a) => Monoid' (Product a) where
   empty = Product 1
+
+
+
+
+instance Functor' BinTree where
+  fmap f (Leaf x)          = Leaf (f x)
+  fmap f (Node left right) = Node (fmap f left) (fmap f right)
+  
+instance Pointed' BinTree where
+  pure = Leaf
+  
+instance Foldable' BinTree where
+  foldr f base (Leaf x) = f x base
+  foldr f base (Node left right) = let base' = foldr f base right
+                                   in foldr f base' left
+
+
+
+
+instance Functor' Tree where
+  fmap f (Tree x bs) = Tree (f x) (fmap (fmap f) bs)
+  
+instance Pointed' Tree where
+  pure x = Tree x []
 
 

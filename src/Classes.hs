@@ -9,10 +9,16 @@ module Classes (
   , Pointed'
   , pure
   
+  , Copointed'
+  , extract
+  
   , Monad'
   , join
   , (>>=)
   , (>>)
+  
+  , Comonad'
+  , duplicate
 
   , Semigroup'
   , (<|>)
@@ -33,6 +39,9 @@ module Classes (
   , foldMap
   , fold
   , foldl
+  
+  , Traversable'
+  , commute
 
 ) where
 
@@ -55,13 +64,17 @@ class Pointed' f where
   pure :: a -> f a
   
 
+-- why does this need to be a subclass of Functor'?
+class Copointed' f where
+  extract :: f a -> a
+  
+
 class (Applicative' m, Pointed' m) => Monad' m where
   join :: m (m a) -> m a
 
   
-{-  
-class Comonad' m where
--}
+class Copointed' w => Comonad' w where
+  duplicate :: w a -> w (w a)
 
 
 class Semigroup' a where
@@ -78,7 +91,13 @@ class Switch' f where
   
 class Foldable' t where
   foldr :: (a -> b -> b) -> b -> t a -> b
-
+  
+  
+class (Functor' t, Foldable' t) => Traversable' t where
+  -- decided to call this 'commute' instead of 'sequenceA'
+  --   because it's not a false cognate with 'sequence'
+  commute :: (Pointed' f, Applicative' f) => t (f a) -> f (t a)
+  
   
 -- -------------------------------
 -- some more combinators
