@@ -3,6 +3,9 @@ module Datums (
     BinTree (..)
   , showBinTree
   
+  , MyTree (..)
+  , showMyTree
+  
   , Id (..)
     
   , Product (Product)
@@ -24,6 +27,12 @@ import Data.List (intersperse)
 data BinTree a
     = Leaf a
     | Node (BinTree a) (BinTree a)
+  deriving (Show, Eq, Ord)
+  
+  
+data MyTree a
+    = Empty
+    | Branch a (MyTree a) (MyTree a)
   deriving (Show, Eq, Ord)
   
   
@@ -67,3 +76,10 @@ showBinTree t = help 0 t
     help :: Show b => Int -> BinTree b -> String
     help n (Leaf x)    = replicate n ' ' ++ show x
     help n (Node l r)  = concat $ intersperse "\n" ((replicate n ' ' ++ "--") : map (help (n + 1)) [l, r])
+
+showMyTree :: Show a => MyTree a -> String
+showMyTree t = help 0 t
+  where
+    help :: Show b => Int -> MyTree b -> String
+    help n Empty = replicate n ' ' ++ "*"
+    help n (Branch x l r) = concat $ intersperse "\n" $ filter ((> 0) . length) ((replicate n ' ' ++ show x) : map (help (n + 1)) [l, r])

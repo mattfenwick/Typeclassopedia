@@ -295,15 +295,17 @@ instance Copointed' BinTree where
 instance Comonad' BinTree where
   duplicate bt   = fmap (const bt) bt
 
--- I can think of 3 ways to make this a semi-group (well, 2 after reflection):
---   1. take the bigger/smaller subtree
---   2. take the left/right subtree
---   3. take both subtrees, putting the left on the left/right
+-- take the bigger subtree
+--   if tied, take left subtree
+instance Semigroup' (BinTree a) where
+  Node l l'  <|>  Node r r'   =  Node (l <|> r) (l' <|> r')
+  Leaf _     <|>  Node r r'   =  Node r r'
+  x          <|>  _           =  x
   
 instance Foldable' BinTree where
-  foldr f base (Leaf x) = f x base
-  foldr f base (Node left right) = let base' = foldr f base right
-                                   in foldr f base' left
+  foldr f base (Leaf x)     = f x base
+  foldr f base (Node l r)   = let base' = foldr f base r
+                              in foldr f base' l
 
 instance Traversable' BinTree where
   commute (Leaf x)    = fmap Leaf x 
@@ -314,8 +316,82 @@ instance Traversable' BinTree where
 
 instance Functor' Tree where
   fmap f (Tree x bs) = Tree (f x) (fmap (fmap f) bs)
-  
+
+instance Applicative' Tree where
+-- 1. treat lists as a zipList:
+--  Tree f fs  <*>  Tree x xs = Tree (f x) (zipWith (<*>) fs xs)
+-- 2. treat lists as nondeterministic
+-- :: Tree (a -> b) -> Tree a -> Tree b
+  Tree f fs  <*>  Tree x xs = Tree (f x) (liftA2 (<*>) fs xs)
+-- 3. treat entire trees as non-deterministic (like in standard Tree Applicative)
+
 instance Pointed' Tree where
   pure x = Tree x []
+
+instance Monad' Tree where
+  join (Tree (Tree x xs) ys) = Tree x (xs ++ map join ys)
+
+instance Copointed' Tree where
+  extract (Tree x _) = x
+
+instance Comonad' Tree where
+  duplicate t = fmap (const t) t
+
+-- it seems like this would be more useful
+--   if the two root elements were semigroup-combined
+--   instead of just ignoring the left one
+-- this would also allow a monoid instance
+instance Semigroup' (Tree a) where
+  Tree x xs  <|>  Tree x' xs'  =  Tree x (liftA2 (<|>) xs xs')
+
+instance Foldable' Tree where
+  -- for (Tree a)
+  -- f :: a -> b -> b
+  foldr f base (Tree x xs) = f x (foldList (\t b -> foldTree f b t) base xs)
+    where
+      foldList :: (Tree a -> b -> b) -> b -> [Tree a] -> b
+      -- foldList :: (a -> b -> b) -> b -> [a] -> b
+      foldList = foldr
+      foldTree :: (a -> b -> b) -> b -> Tree a -> b
+      foldTree = foldr
+
+
+
+
+instance Functor' MyTree where
+  fmap _ Empty            = Empty
+  fmap f (Branch x l r)   = Branch (f x) (fmap f l) (fmap f r)
+
+instance Applicative' MyTree where
+  Empty         <*>  _                =  Empty
+  _             <*>  Empty            =  Empty
+  Branch f l r  <*>  Branch x l' r'   =  Branch (f x) (l <*> l') (r <*> r')
+
+instance Pointed' MyTree where
+  pure x = Branch x Empty Empty
+
+-- take the bigger subtree
+--   if tied, take left subtree
+instance Semigroup' (MyTree a) where
+  x             <|>  Empty             = x
+  Empty         <|>  y                 = y
+  Branch x l r  <|>  Branch x' l' r'   = Branch x (l <|> l') (r <|> r')
+
+instance Monoid' (MyTree a) where
+  empty = Empty
+
+instance Switch' MyTree where
+  switch Empty   = pure ()
+  switch _       = Empty
+
+instance Foldable' MyTree where
+  foldr _ base Empty          = base
+  foldr f base (Branch x l r) = let base' = foldr f base r
+                                in let base'' = f x base'
+                                in foldr f base'' l
+
+instance Traversable' MyTree where
+  commute Empty = pure Empty
+  commute (Branch x l r) = fmap Branch x <*> commute l <*> commute r
 
 
