@@ -271,8 +271,8 @@ instance (Num a) => Monoid' (Product a) where
 
 
 instance Functor' BinTree where
-  fmap f (Leaf x)          = Leaf (f x)
-  fmap f (Node left right) = Node (fmap f left) (fmap f right)
+  fmap f (Leaf x)      = Leaf (f x)
+  fmap f (Node l r)    = Node (fmap f l) (fmap f r)
   
 instance Applicative' BinTree where
   (Leaf f)   <*> (Leaf x)     = Leaf (f x)
@@ -345,15 +345,15 @@ instance Semigroup' (Tree a) where
   Tree x xs  <|>  Tree x' xs'  =  Tree x (liftA2 (<|>) xs xs')
 
 instance Foldable' Tree where
-  -- for (Tree a)
-  -- f :: a -> b -> b
   foldr f base (Tree x xs) = f x (foldList (\t b -> foldTree f b t) base xs)
     where
       foldList :: (Tree a -> b -> b) -> b -> [Tree a] -> b
-      -- foldList :: (a -> b -> b) -> b -> [a] -> b
       foldList = foldr
       foldTree :: (a -> b -> b) -> b -> Tree a -> b
       foldTree = foldr
+
+instance Traversable' Tree where
+  commute (Tree x bs) = fmap Tree x <*> (traverse commute bs)
 
 
 
