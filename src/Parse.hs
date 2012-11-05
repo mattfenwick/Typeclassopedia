@@ -6,6 +6,7 @@ module Parse (
 ) where
 
 import Classes
+import Instances
 import Prelude hiding (fmap, (>>=), (>>), fail)
 
 
@@ -105,12 +106,11 @@ pany = mconcat
 
 
 pall :: (Pointed' f, Applicative' f) => [f a] -> f [a]
-pall [] = pure []
-pall (x:xs) = fmap (:) x <*> pall xs
+pall = commute
 
 
 optional :: (Functor' f, Pointed' f, Semigroup' (f (Maybe a))) => f a -> f (Maybe a)
-optional p = (fmap Just p) <|> pure Nothing
+optional p = fmap Just p <|> pure Nothing
 
 
 sepBy1 :: (Applicative' f, Pointed' f, Semigroup' (f ([a1], [a]))) => f a1 -> f a -> f ([a1], [a])

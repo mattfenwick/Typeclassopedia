@@ -56,7 +56,7 @@ class Functor' f where
   fmap :: (a -> b) -> f a -> f b
   
   
-class (Functor' f) => Applicative' f where
+class Functor' f => Applicative' f where
   (<*>) :: f (a -> b) -> f a -> f b
 
   
@@ -80,7 +80,7 @@ class Semigroup' a where
   (<|>)  :: a -> a -> a
 
 
-class (Semigroup' a) => Monoid' a where
+class Semigroup' a => Monoid' a where
   empty :: a
   
   
