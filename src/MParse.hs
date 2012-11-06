@@ -1,6 +1,26 @@
 module MParse (
 
     Parser(..)
+  
+  , getOne
+  , check
+  , satisfy
+  , literal
+  
+  , (<*)
+  , (*>)
+  , some
+  , many
+  
+  , optional
+  , sepBy1
+  , sepBy0
+  
+  , end
+  , not1
+  , pnot
+  , pnone
+  , string
 
 ) where
 
