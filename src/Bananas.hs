@@ -2,6 +2,9 @@ module Bananas (
 
 ) where
 
+import Control.Arrow ((***))
+import Prelude hiding ((^), (||))
+
 
 -- type variable conventions:
 --  a:  element of list
@@ -70,8 +73,86 @@ para' base f (x:xs)   =   f x (xs, para' base f xs)
 
 
 
+-- ----------------
+-- ADT section
+
+(||) :: (a -> b) -> (c -> d) -> (a, c) -> (b, d)
+(||) = (***)
+
+dup :: a -> (a, a)
+dup x = (x, x)
+
+piLeft :: (a, b) -> a
+piLeft = fst
+
+piRight :: (a, b) -> b
+piRight = snd
+
+(^) :: (a -> b) -> (a -> d) -> a -> (b, d)
+f ^ g = (f *** g) . dup
+
+(?|?) :: (a -> b) -> (c -> d) -> Either a c -> Either b d
+f ?|? g = \x -> case x of
+                (Left x'') -> Left (f x'');
+                (Right x') -> Right (g x');
+
+leftI :: a -> Either a b
+leftI = Left
+
+rightI :: b -> Either a b
+rightI = Right
+
+v :: (a -> d) -> (c -> d) -> Either a c -> d
+v f g (Left x)   =  f x
+v f g (Right x)  =  g x
+
+
+-- fst . (f || g)         =  f . fst
+
+-- fst . (f ^ g)          =  f
+
+-- snd . (f || g)         =  g . snd
+
+-- snd . (f ^ g)          =  g
+
+-- (fst . h) ^ (snd . h)  =  h
+
+-- (fst *** snd) . dup    =  id
+
+-- (f || g) . (h ^ j)     =  (f . h) ^ (g . j)
+
+-- (f ^ g) . h            =  (f . h) ^ (g . h)
+
+-- (f || g) = (h || j) ==> f = h AND g = j
+
+-- (f *** g) . dup = (h *** j) . dup ==> f = h AND g = j
 
 
 
+-- (f ?|? g) . Left       =  Left . f
 
+-- (f `v` g) . Left       =  f
+
+-- (f ?|? g) . Right      =  Right . g
+
+-- (f `v` g) . Right      =  g
+
+-- (h . Left) `v` (h . Right)  =  h
+--   explanation:  `v` untags, then the same tag is readded
+
+-- Left `v` Right         =  id
+
+-- (f `v` g) . (h ?|? j)  =  (f . h) `v` (g . j)
+
+-- f . (g `v` h)          =  (f . g) `v` (f . h)
+
+-- f ?|? g = h ?|? j ==> f = h AND g = j
+
+-- f `v` g = h `v` j ==> f = h AND g = j
+
+
+
+-- (f ^ g) `v` (h ^ j)       =  (f `v` h) ^ (g `v` j)
+hmm :: (a -> b) -> (a -> d) -> (c -> b) -> (c -> d) -> Either a c -> (b, d)
+hmm f g h j = ((f *** g) . dup) `v` ((h *** j) . dup)
 
