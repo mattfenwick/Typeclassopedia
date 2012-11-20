@@ -156,3 +156,13 @@ v f g (Right x)  =  g x
 hmm :: (a -> b) -> (a -> d) -> (c -> b) -> (c -> d) -> Either a c -> (b, d)
 hmm f g h j = ((f *** g) . dup) `v` ((h *** j) . dup)
 
+
+pQ :: (a -> Bool) -> a -> Either a a
+pQ p x 
+  | p x         =  Left x
+  | otherwise   =  Right x
+
+-- (f `v` g) . (p? p)  ==>   if p then f else g
+
+void :: a -> ()
+void = const ()
