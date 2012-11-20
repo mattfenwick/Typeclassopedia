@@ -7,6 +7,10 @@ module Datums (
   , showMyTree
   
   , Id (..)
+
+  , State (..)
+  , get
+  , set
     
   , Product (Product)
   , unProduct
@@ -24,11 +28,13 @@ module Datums (
 import Data.List (intersperse)
 
 
+
 data BinTree a
     = Leaf a
     | Node (BinTree a) (BinTree a)
   deriving (Show, Eq, Ord)
   
+
   
 data MyTree a
     = Empty
@@ -41,6 +47,20 @@ data Id a
     = Id a 
   deriving (Show, Eq, Ord)
 
+
+
+newtype State s a
+    = State {
+        getState :: s -> (s, a)
+    }
+
+set :: s -> State s ()
+set s = State (\_ -> (s, ()))
+
+get :: State s s
+get = State (\s -> (s, s))
+
+  
 
 
 newtype Product a 

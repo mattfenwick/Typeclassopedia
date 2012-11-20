@@ -245,6 +245,27 @@ instance Traversable' Id where
 
 
 
+instance Functor' (State s) where
+  -- :: (a -> b) -> State s a -> State s b
+  fmap f (State g) = State (\s -> fmap f (g s))
+
+instance Applicative' (State s) where
+  -- :: State s (a -> b) -> State s a -> State s b
+  State f <*> State x = State (\s -> let (s', f') = f s
+                                         (s'', x') = x s'
+                                     in (s'', f' x'))
+
+instance Pointed' (State s) where
+  pure x = State (\s -> (s, x))
+
+instance Monad' (State s) where
+  -- :: State s (State s a) -> State s a
+  -- :: s -> (s, a)  ==>  s -> (s, s -> (s, a))
+  join (State s1) = State (\s -> let (s', s2) = s1 s
+                                 in getState s2 s')
+
+
+
 
 instance Functor' IO where
   fmap f x = do { x' <- x; return (f x')}
