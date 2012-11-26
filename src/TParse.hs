@@ -26,7 +26,7 @@ module TParse (
 ) where
 
 import Classes
-import Instances
+import Instances () -- what does this do?
 import Prelude hiding (fmap, (>>=), (>>), fail, foldr, foldl)
 
 
@@ -38,9 +38,9 @@ data Thing a b c
 
 
 
-newtype Parser t a = Parser {
-        getParser :: ( [t] -> Thing [t] [t] ([t], a) )
-      , name :: String
+data Parser t a = Parser {
+        getParser :: ( [t] -> Thing String String ([t], a) )
+--      , name :: String
     }
 
 
@@ -53,17 +53,15 @@ instance Pointed' (Thing a b) where
   pure = Ok
 
 instance Applicative' (Thing a b) where
-  Ok f     <*>  Ok x     =  Ok (f x)
-  Ok _     <*>  Fail a   =  Fail a
-  Ok _     <*>  Error b  =  Error b
-  Fail y   <*>    _      =  Fail y
-  Error z  <*>    _      =  Error z
+  Ok f     <*>   x    =  fmap f x
+  Fail y   <*>   _    =  Fail y
+  Error z  <*>   _    =  Error z
 
 instance Monad' (Thing a b) where
-  join (Ok (Ok x)) =  Ok x
-  join (Ok q)      =  q
-  join (Fail y)    =  Fail y
-  join (Error z)   =  Error z
+  join (Ok (Ok x))  =  Ok x
+  join (Ok q)       =  q
+  join (Fail y)     =  Fail y
+  join (Error z)    =  Error z
 
 instance Semigroup' (Thing a b c) where
   Ok x      <|>  _   =  Ok x
@@ -84,35 +82,49 @@ instance Traversable' (Thing a b) where
 
 instance Functor' (Parser s) where
   -- one 'fmap' for the Thing, one for the ((,) [t])
+--  fmap f (Parser g _) = Parser (fmap (fmap f) . g) ""
   fmap f (Parser g) = Parser (fmap (fmap f) . g)
 
 instance Applicative' (Parser s) where
-  Parser f <*> Parser x = Parser h
+--  Parser f m  <*>  Parser x _  =  Parser h m
+  f <*> x =
+     f   >>= \f' ->
+     x   >>= \x' ->
+     pure (f' x')
+{- why TF doesn't this work?  (not lazy in 2nd arg)
+  Parser f  <*>  Parser x  =  Parser h
     where
       h xs = f xs >>= \(ys, f') -> 
         x ys >>= \(zs, x') ->
-        pure (zs, f' x')
+        Ok (zs, f' x')
+-}
         
 instance Pointed' (Parser s) where
+--  pure a = Parser (\xs -> pure (xs, a)) ""  
   pure a = Parser (\xs -> pure (xs, a))
-  
+
 instance Monad' (Parser s) where
+--  join (Parser f _) = Parser h ""
   join (Parser f) = Parser h
     where
       h xs = 
+--          f xs >>= \(o, Parser g _) -> 
           f xs >>= \(o, Parser g) -> 
           g o  
   
 instance Semigroup' (Parser s a) where
-  Parser f <|> Parser g = Parser (\xs -> f xs <|> g xs)
+--  Parser f _  <|>  Parser g _  =  Parser (\xs -> f xs <|> g xs) ""
+  Parser f  <|>  Parser g  =  Parser (\xs -> f xs <|> g xs)
   
 instance Monoid' (Parser s a) where
-  empty = Parser Fail
+--  empty = Parser Fail "empty"
+  empty = Parser (const $ Fail "empty")
   
 instance Switch' (Parser s) where
+--  switch (Parser f _) = Parser h ""
   switch (Parser f) = Parser h
     where h xs = case (f xs) of
-                      (Ok _)     ->  Fail xs;
+                      (Ok _)     ->  Fail "switch"
                       (Fail _)   ->  Ok (xs, ())
                       (Error z)  ->  Error z
 
@@ -126,7 +138,8 @@ instance Switch' (Parser s) where
 getOne :: Parser s s
 getOne = Parser (\xs -> case xs of 
                         (y:ys) -> pure (ys, y);
-                        _      -> Fail xs)
+                        _      -> Fail "getOne")
+--                ""
   
   
 check :: (a -> Bool) -> Parser s a -> Parser s a
@@ -145,13 +158,13 @@ literal tok = satisfy (== tok)
   
 -- match both parsers in sequence, and return 
 --   the value of the second parser
-(*>) :: Parser t a -> Parser t b -> Parser t b
+-- (*>) :: Parser t a -> Parser t b -> Parser t b
 l *> r = fmap (flip const) l <*> r 
 
 
 -- match both parsers in sequence, and return
 --   the value of the first parser
-(<*) :: Parser t a -> Parser t b -> Parser t a
+-- (<*) :: Parser t a -> Parser t b -> Parser t a
 l <* r = fmap const l <*> r
 
 
@@ -174,7 +187,7 @@ sepBy1 :: Parser t a -> Parser t b -> Parser t ([a], [b])
 sepBy1 p s = fmap g p <*> (liftA2 f s (sepBy1 p s) <|> pure ([], []))
   where 
     f a (b, c) = (b, a:c)
-    g d (e, f) = (d:e, f) -- why are we shadowing here ???
+    g d (e, f) = (d:e, f) -- why are we shadowing f here ???
     
 
 sepBy0 :: Parser t a -> Parser t b -> Parser t ([a], [b])
@@ -212,9 +225,14 @@ string = commute . map literal
 
 
 commit :: Parser t a -> Parser t a
+-- commit p = Parser h "committed"
 commit p = Parser h
   where
     h xs = case (getParser p xs) of
                 (Ok x)     -> Ok x;
                 (Fail y)   -> Error y;
                 (Error z)  -> Error z;
+
+
+-- setName :: String -> Parser t a -> Parser t a
+-- setName n (Parser f _)  =  Parser f n
