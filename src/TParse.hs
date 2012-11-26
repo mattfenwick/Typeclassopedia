@@ -38,8 +38,8 @@ data Thing a b c
 
 
 
-data Parser t a = Parser {
-        getParser :: ( [t] -> Thing String String ([t], a) )
+newtype Parser t a = Parser {
+        getParser :: ( [t] -> Thing [t] [t] ([t], a) )
 --      , name :: String
     }
 
@@ -81,9 +81,14 @@ instance Traversable' (Thing a b) where
 
 
 instance Functor' (Parser s) where
-  -- one 'fmap' for the Thing, one for the ((,) [t])
 --  fmap f (Parser g _) = Parser (fmap (fmap f) . g) ""
   fmap f (Parser g) = Parser (fmap (fmap f) . g)
+{- I'm shocked that this doesn't work;
+what does it do, invoke a circular definition?
+fmap f p = 
+      p >>= \x -> 
+      pure (f x)
+-}
 
 instance Applicative' (Parser s) where
 --  Parser f m  <*>  Parser x _  =  Parser h m
@@ -91,13 +96,7 @@ instance Applicative' (Parser s) where
      f   >>= \f' ->
      x   >>= \x' ->
      pure (f' x')
-{- why TF doesn't this work?  (not lazy in 2nd arg)
-  Parser f  <*>  Parser x  =  Parser h
-    where
-      h xs = f xs >>= \(ys, f') -> 
-        x ys >>= \(zs, x') ->
-        Ok (zs, f' x')
--}
+
         
 instance Pointed' (Parser s) where
 --  pure a = Parser (\xs -> pure (xs, a)) ""  
@@ -118,13 +117,13 @@ instance Semigroup' (Parser s a) where
   
 instance Monoid' (Parser s a) where
 --  empty = Parser Fail "empty"
-  empty = Parser (const $ Fail "empty")
+  empty = Parser Fail
   
 instance Switch' (Parser s) where
 --  switch (Parser f _) = Parser h ""
   switch (Parser f) = Parser h
     where h xs = case (f xs) of
-                      (Ok _)     ->  Fail "switch"
+                      (Ok _)     ->  Fail xs
                       (Fail _)   ->  Ok (xs, ())
                       (Error z)  ->  Error z
 
@@ -138,7 +137,7 @@ instance Switch' (Parser s) where
 getOne :: Parser s s
 getOne = Parser (\xs -> case xs of 
                         (y:ys) -> pure (ys, y);
-                        _      -> Fail "getOne")
+                        _      -> Fail xs)
 --                ""
   
   
