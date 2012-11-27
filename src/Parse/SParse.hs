@@ -1,4 +1,4 @@
-module SParse (
+module Parse.SParse (
 
     SParser(..)
 
@@ -7,7 +7,7 @@ module SParse (
 import Classes
 import Instances () -- what does this do?
 import Prelude hiding (fmap, (>>=), (>>), fail, foldr, foldl)
-import IParse
+import Parse.IParse
 
 
 newtype SParser s t a = SParser {

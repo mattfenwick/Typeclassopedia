@@ -1,4 +1,4 @@
-module IParse (
+module Parse.IParse (
 
     ParserT
 

@@ -1,4 +1,4 @@
-module Thing (
+module Parse.Thing (
 
     Thing(..)
 

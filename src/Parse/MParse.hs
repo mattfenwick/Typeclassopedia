@@ -1,4 +1,4 @@
-module MParse (
+module Parse.MParse (
 
     MParser(..)
 
@@ -7,7 +7,7 @@ module MParse (
 import Classes
 import Instances () -- what does this do?
 import Prelude hiding (fmap, (>>=), (>>), fail, foldr, foldl)
-import IParse
+import Parse.IParse
 
 
 newtype MParser t a = MParser {

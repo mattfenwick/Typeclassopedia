@@ -1,4 +1,4 @@
-module TParse (
+module Parse.TParse (
 
     TParser(..)
 
@@ -14,8 +14,8 @@ module TParse (
 import Classes
 import Instances () -- what does this do?
 import Prelude hiding (fmap, (>>=), (>>), fail, foldr, foldl)
-import Thing
-import IParse
+import Parse.Thing
+import Parse.IParse
 
 
 -- ideas for dealing with errors:
