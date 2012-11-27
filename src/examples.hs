@@ -1,4 +1,5 @@
 import Classes
+import Instances
 
 import Prelude hiding (fmap, (>>=), (>>), fail)
 
@@ -7,9 +8,10 @@ import Prelude hiding (fmap, (>>=), (>>), fail)
 -- Just 0.5 >>= \x -> guard (x > 3) >> pure x
 
 f :: (Monad' m, Monoid' (m [Int]), Pointed' m) => m Int -> m [Int]
-f m = m >>= \x -> if x < 5 
-                  then pure [x - 1 .. x + 1] 
-                  else empty
+f m = 
+  m              >>= \x -> 
+  guard (x < 5)  >> 
+  pure [x - 1 .. x + 1]
 
 
 digit :: String -> Maybe Char
