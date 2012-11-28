@@ -1,5 +1,3 @@
-{-# LANGUAGE FlexibleInstances #-} -- for the Semigroup/Monoid instances of (a -> a)
-
 module Instances (
 
 ) where
@@ -36,12 +34,11 @@ instance Monad' ((->) a) where
   --   I don't understand how this works
   join f = \x -> (f x) x
 
--- apparently requires FlexibleInstances
-instance Semigroup' ((->) a a) where
-  (<|>) = (.)
+instance Semigroup' b => Semigroup' ((->) a b) where
+  f <|> g = \x -> f x <|> g x
 
-instance Monoid' ((->) a a) where
-  empty = id
+instance Monoid' b => Monoid' ((->) a b) where
+  empty = const empty
 
 
 
