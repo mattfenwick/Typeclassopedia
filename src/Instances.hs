@@ -45,7 +45,7 @@ instance Monoid' a => Monoid' ((->) z a) where
 
 instance Foldable' ((->) z) where
   -- (a -> b -> b) -> b -> (z -> a) -> b
---  foldr f base g = f (g empty) base
+--  foldr f base g = f (g empty) base -- if we allow a monoid constraint on z
 --  foldr _ base _ = base
   foldr _ = const
 
