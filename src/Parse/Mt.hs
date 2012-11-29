@@ -1,4 +1,14 @@
+{-# LANGUAGE NoMonomorphismRestriction #-}
+
 module Parse.Mt (
+
+    join2
+  , bind2
+  
+  , RW(..)
+  , WR(..)
+  , RW1(..)
+  , WR1(..)
 
 ) where
 
@@ -14,6 +24,22 @@ type Reader a b = a -> b
 
 
 type Writer a b = (a, b)
+
+
+join2 :: (Monad' m, Traversable' n, Monad' n) => m (n (m (n a))) -> m (n a)
+join2 = 
+    fmap join      .
+    join           .
+    fmap commute
+    -- 4. m (n a)
+    -- 3. m (n (n a))
+    -- 2. m (m (n (n a)))
+    -- 1. m (n (m (n a)))
+
+
+-- bind2 :: m a -> (a -> m b) -> m b
+bind2 :: (Monad' m, Traversable' n, Monad' n) => m (n a) -> (a -> m (n b)) -> m (n b)
+bind2 m f = join2 (fmap (fmap f) m)
 
 
 
@@ -56,6 +82,95 @@ instance Monad' (RW z) where
                  (z3, a)     = r2 z2
              in (z3, a)
 
+-- instance Semigroup' (RW z a) where
+  -- RW z a -> RW z a -> RW z a
+  -- (z -> (z, a)) -> (z, (z, a)) -> (z, (z, a))
+
+-- instance Monoid' (RW z a) where
+  -- RW z a
+  -- (z -> (z, a))
+
+
+-- derivation:  ???? so which is the top (Reader) and which is the bottom (Writer) ?
+--            (a, b)
+--      Maybe (a, b)
+-- a -> Maybe (a, b)
+newtype RMW z a
+    = RMW {
+        getRMW :: Reader z (Maybe (Writer z a))
+    -- or      :: z -> Maybe (z, a)
+    }
+
+instance Functor' (RMW z) where
+  -- (a -> b) -> RMW z a -> RMW z b
+  -- (a -> b) -> (z -> Maybe (z, a)) -> (z -> Maybe (z, b))
+  fmap f = RMW . fmap (fmap (fmap f)) . getRMW
+
+instance Pointed' (RMW z) where
+  -- a -> RMW z a
+  -- a -> (z -> Maybe (z, a))
+  pure a = RMW (\z -> Just (z, a))
+
+instance Applicative' (RMW z) where
+  -- RMW z (a -> b) -> RMW z a -> RMW z b
+  -- (z -> Maybe (z, a -> b)) -> (z -> Maybe (z, a)) -> (z -> Maybe (z, b))
+  RMW f <*> RMW x = RMW h
+    where
+      h z1 = 
+          f z1 >>= \(z2, f') ->
+          x z2 >>= \(z3, x') ->
+          Just (z3, f' x')
+
+instance Monad' (RMW z) where
+  -- RMW z (RMW z a) -> RMW z a
+  -- (z -> Maybe (z, z -> Maybe (z, a))) -> z -> Maybe (z, a)
+  join (RMW f1) = RMW h
+    where
+      h z1 = 
+          f1 z1 >>= \(z2, RMW f2) ->
+          f2 z2
+
+
+
+newtype RW1 y z a
+    = RW1 {
+        getRW1 :: Reader y (Writer z a)
+    -- or      :: Reader y (z, a)
+    -- or      :: y -> (z, a)
+    }
+
+instance Functor' (RW1 y z) where
+  -- (a -> b) -> RW1 y z a     -> RW1 y z b
+  -- (a -> b) -> (y -> (z, a)) -> (y -> (z, b))
+  fmap f = RW1 . fmap (fmap f) . getRW1
+
+instance Monoid' z => Pointed' (RW1 y z) where
+  -- a -> RW1 y z a
+  -- a -> (y -> (z, a))
+  pure = RW1 . const . ((,) empty)
+
+instance Semigroup' z => Applicative' (RW1 y z) where
+  -- RW1 y z (a -> b)   -> RW1 y z a     -> RW1 y z b
+  -- (y -> (z, a -> b)) -> (y -> (z, a)) -> (y -> (z, b))
+  RW1 f <*> RW1 x = RW1 h
+    where
+      h y = let (z1, f') = f y
+                (z2, x') = x y
+            in (z1 <|> z2, f' x')
+
+instance Monoid' z => Monad' (RW1 y z) where
+  -- RW1 y z (RW1 y z a) -> RW1 y z a
+  -- R y (W z (R y (W z a))) -> R y (W z a)
+  -- (y -> (z, y -> (z, a))) -> y -> (z, a)
+  join = RW1 . join2 . getRW1 . fmap getRW1
+--
+-- 'old-school' implementation:
+--  join (RW1 f1) = RW1 h
+--    where
+--      h y = let (z1, f2) = f1 y
+--                (z2, x) = getRW1 f2 y
+--            in (z1 <|> z2, x)
+            
 
 
 newtype WR z a 
@@ -99,4 +214,67 @@ instance Monoid' z => Monad' (WR z) where
       WR (z2, r2) = r1 z1
       h = (z1 <|> z2, r2)
 
+
+
+newtype WR1 y z a
+    = WR1 {
+        getWR1 :: Writer y (Reader z a)
+    -- or      :: (y, z -> a)
+    }
+
+instance Functor' (WR1 y z) where
+  -- (a -> b) -> WR1 y z a -> WR1 y z b
+  -- (a -> b) -> (y, z -> a) -> (y, z -> b)
+  fmap f = WR1 . fmap (fmap f) . getWR1
+
+instance Monoid' y => Pointed' (WR1 y z) where
+  -- a -> WR1 y z a
+  -- a -> (y, z -> a)
+  pure x = WR1 (empty, const x)
+
+instance Semigroup' y => Applicative' (WR1 y z) where
+  -- WR1 y z (a -> b) -> WR1 y z a -> WR1 y z b
+  -- (y, z -> (a -> b)) -> (y, z -> a) -> (y, z -> b)
+  WR1 f <*> WR1 x = WR1 h
+    where
+      h = let (y1, f') = f
+              (y2, x') = x
+          in (y1 <|> y2, \z -> f' z (x' z))
+{-
+instance Monoid' y => Monad' (WR1 y z) where
+  -- WR1 y z (WR1 y z a) -> WR1 y z a
+  -- (y, z -> (y, z -> a)) -> (y, z -> a)
+  join (WR1 m) = WR1 h
+    where
+      h = let (y1, f1) = m
+              f3 z = let (y2, f2) = f1 z
+                     in (y1 <|> y2, f2)
+              (y3, f4) = f3 ??
+          in (y3, \z -> 
+    WR1 (y3, f3)
+    where
+      (y1, f1) = m
+      f3 z = let (y2, f2) = f1 z
+             in f2
+      y3 = l
+    where
+      -}
+{-
+  bind :: WR1 y z a -> (a -> WR1 y z b) -> WR1 y z b
+  bind :: (y, z -> a) -> (a -> (y, z -> b)) -> (y, z -> b)
+  bind WR1 (y1, f1) g = WR1 h
+    where
+      h = (y3, f4)
+        where
+          
+      f3 :: z -> (y, z -> b)
+      f3 z = let a = f1 z
+                 (y2, f2) = g a
+                 in (y2, f2)
+  bind WR1 m g = WR1 h
+    where
+      h = do $
+          f <- m
+          
+-}
 
