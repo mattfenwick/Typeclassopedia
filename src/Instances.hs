@@ -18,27 +18,36 @@ instance Monoid' () where
 
 
 
-instance Functor' ((->) a) where
-  -- (b -> c) -> (a -> b) -> (a -> c)
+instance Functor' ((->) z) where
+  -- (a -> b) -> (z -> a) -> (z -> b)
   fmap f g = f . g
 
-instance Applicative' ((->) a) where
-  -- (a -> (b -> c)) -> (a -> b) -> (a -> c)
+instance Applicative' ((->) z) where
+  -- (z -> (a -> b)) -> (z -> a) -> (z -> b)
   f <*> g = \x -> f x (g x)
 
-instance Pointed' ((->) a) where
+instance Pointed' ((->) z) where
+  -- a -> (z -> a)
   pure = const
 
-instance Monad' ((->) a) where
-  -- (a -> (a -> b)) -> (a -> b)
-  --   I don't understand how this works
+instance Monad' ((->) z) where
+  -- (z -> (z -> a)) -> (z -> a)
   join f = \x -> (f x) x
+  --   I don't understand how this works
 
-instance Semigroup' b => Semigroup' ((->) a b) where
+instance Semigroup' a => Semigroup' ((->) z a) where
+  -- (z -> a) -> (z -> a) -> (z -> a)
   f <|> g = \x -> f x <|> g x
 
-instance Monoid' b => Monoid' ((->) a b) where
+instance Monoid' a => Monoid' ((->) z a) where
+  -- z -> a
   empty = const empty
+
+instance Foldable' ((->) z) where
+  -- (a -> b -> b) -> b -> (z -> a) -> b
+--  foldr f base g = f (g empty) base
+--  foldr _ base _ = base
+  foldr _ = const
 
 
 
