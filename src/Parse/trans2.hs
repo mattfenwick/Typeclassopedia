@@ -49,14 +49,15 @@ item =
              []     ->  aempty
 
 
-class ParserT t where
+class MonadParser t where
   getOne :: Parser t s m a
 
 
 
-newtype ParseM t s m a
+newtype ParseM t m a
     = ParseM {
-        getParseM :: Parser t s m a
+        getParseM :: StateT [t] m a
+    -- getParseM :: [t] -> m (a, [t]) -- is that the same thing?
     }
 
 instance ParserT ParseM

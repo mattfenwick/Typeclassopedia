@@ -1,0 +1,37 @@
+(what order do the type parameters go in?)
+
+inner   middle   outer     type
+
+Maybe   StateT   ListT     [s -> Maybe (a, s)]
+
+Reader  WriterT  ErrorT    t -> (Either e a, w)
+Reader  ErrorT   WriterT   t -> Either e (a, w)
+
+Writer  ReaderT  ErrorT    r -> (Either e a, x)
+Writer  ErrorT   ReaderT   r -> (Either e a, x)
+
+Error   ReaderT  WriterT   r -> Either f (a, w)
+Error   WriterT  ReaderT   r -> Either f (a, w)
+
+Error   ParserT  StateT    s -> [t] -> Either f ([t], (a, s))
+Error   StateT   ParserT   [t] -> s -> Either f (([t], a), s)
+
+State   ParserT  ErrorT    [t] -> s -> (([t], Either f a), s)
+State   ErrorT   ParserT   [t] -> s -> (Either e ([t], a), s)
+
+Parser  ErrorT   StateT    s -> [t] -> ([t], Either e (a, s))
+Parser  StateT   ErrorT    s -> [t] -> ([t], (Either e a, s))
+
+
+
+Writer  ErrorT   StateT               s -> (Either e (a, s), x)
+Writer  ErrorT   StateT    ParserT    [t] -> s -> (Either e (([t], a), s), x)
+
+Error   WriterT  StateT               s -> Either f ((a, s), w)
+Error   WriterT  StateT    ParserT    [t] -> s -> Either f ((([t], a), s, w)
+
+Error   StateT   WriterT              s -> Either f ((a, w), s)
+Error   StateT   WriterT   ParserT    [t] -> s -> Either f ((([t], a), w), s)
+
+Error   StateT   ParserT              [t] -> s -> Either f (([t], a), s)
+Error   StateT   ParserT   WriterT    [t] -> s -> Either f (([t], (a, w)), s)	

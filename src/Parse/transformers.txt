@@ -1,0 +1,65 @@
+inner   outer      type
+
+Maybe   MaybeT     Maybe (Maybe a)
+Maybe   StateT     s -> Maybe (a, s)
+Maybe   ListT      Maybe [a]
+Maybe   ErrorT     Maybe (Either e a)
+Maybe   ReaderT    r -> Maybe a
+Maybe   WriterT    Maybe (a, w)
+Maybe   ParserT    [s] -> Maybe ([s], a)
+
+State   MaybeT     t -> (Maybe a, t)
+State   StateT     s -> t -> ((a, s), t)
+State   ListT      t -> ([a], t)
+State   ErrorT     t -> (Either e a, t)
+State   ReaderT    r -> t -> (a, t)
+State   WriterT    t -> ((a, w), t)
+State   ParserT    [s] -> t -> (([s], a), t)
+
+List    MaybeT     [Maybe a]
+List    StateT     s -> [(a, s)]
+List    ListT      [] ([] a)
+List    ErrorT     [Either e a]
+List    ReaderT    r -> [a]
+List    WriterT    [(a, w)]
+List    ParserT    [s] -> [([s], a)]
+
+Error   MaybeT     Either f (Maybe a)
+Error   StateT     s -> Either f (a, s)
+Error   ListT      Either f [a]
+Error   ErrorT     Either f (Either e a)
+Error   ReaderT    r -> Either f a
+Error   WriterT    Either f (a, w)
+Error   ParserT    [s] -> Either f ([s], a)
+
+Reader  MaybeT     t -> Maybe a
+Reader  StateT     s -> t -> (a, s)
+Reader  ListT      t -> [a]
+Reader  ErrorT     t -> Either e a
+Reader  ReaderT    r -> t -> a
+Reader  WriterT    t -> (a, w)
+Reader  ParserT    [s] -> t -> ([s], a)
+
+Writer  MaybeT     (Maybe a, x)
+Writer  StateT     s -> ((a, s), x)
+Writer  ListT      ([a], x)
+Writer  ErrorT     (Either e a, x)
+Writer  ReaderT    r -> (a, x)
+Writer  WriterT    ((a, w), x)
+Writer  ParserT    [s] -> (([s], a), x)
+
+Parser  MaybeT     [t] -> ([t], Maybe a)
+Parser  StateT     s -> [t] -> ([t], (a, s))
+Parser  ListT      [t] -> ([t], [a])
+Parser  ErrorT     [t] -> ([t], Either e a)
+Parser  ReaderT    r -> [t] -> ([t], a)
+Parser  WriterT    [t] -> ([t], (a, w))
+Parser  ParserT    [s] -> [t] -> ([t], ([s], a))
+
+IO      MaybeT     IO (Maybe a)
+IO      StateT     s -> IO (a, s)
+IO      ListT      IO [a]
+IO      ErrorT     IO (Either e a)
+IO      ReaderT    r -> IO a
+IO      WriterT    IO (a, w)
+IO      ParserT    [s] -> IO ([s], a)
