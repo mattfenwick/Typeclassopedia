@@ -1,8 +1,6 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.State
-import Control.Monad.Trans.Writer
-import Control.Monad.Trans.Maybe
 import Data.Monoid
 import Control.Monad (liftM)
 
@@ -20,21 +18,27 @@ runParser p s =
 empty :: StateT s Maybe a
 empty = StateT (const Nothing)
 
+
 getTokens = liftM fst get
+
 putTokens ts =
     get >>= \(_,s) ->
     put (ts, s)
+
 updateTokens f =
     getTokens >>= \ts ->
     putTokens (f ts)
 
 getState = liftM snd get
+
 putState s' = 
     get >>= \(ts,_) ->
     put (ts, s')
+
 updateState f =
     getState >>= \x ->
     putState (f x)
+
 
 tick :: Parser t Int ()
 tick = updateState (+1)
