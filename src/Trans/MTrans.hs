@@ -208,6 +208,7 @@ instance MonadState s m => MonadState s (MaybeT m) where
   get  =  lift get
   put  =  lift . put
 
+{-
 instance (MonadTrans' t, MonadState s m, Monad' (t m)) => MonadState s (t m) where
   -- m s
   -- s -> (s, s)
@@ -215,3 +216,4 @@ instance (MonadTrans' t, MonadState s m, Monad' (t m)) => MonadState s (t m) whe
   -- s -> m ()
   -- s -> t -> (s, ())
   put  =  lift . put
+-}
