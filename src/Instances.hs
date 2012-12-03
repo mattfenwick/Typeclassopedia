@@ -266,7 +266,7 @@ instance Pointed' (State s) where
 
 instance Monad' (State s) where
   -- :: State s (State s a) -> State s a
-  -- :: s -> (s, a)  ==>  s -> (s, s -> (s, a))
+  -- :: s -> (s, s -> (s, a)) -> s -> (s, a)
   join (State s1) = State (\s -> let (s', s2) = s1 s
                                  in getState s2 s')
 
