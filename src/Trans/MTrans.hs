@@ -1,5 +1,23 @@
 {-# LANGUAGE NoMonomorphismRestriction, FunctionalDependencies, FlexibleInstances, UndecidableInstances #-}
-module MTrans (
+module Trans.MTrans (
+
+    Composer'
+
+  , pure2
+  , fmap2
+  , app2
+  , join2
+  
+  , MonadTrans'(..)
+  
+  , MaybeT(..)
+
+  , WriterT(..)
+  , say
+  , MonadWriter(..)
+
+  , StateT(..)
+  , MonadState(..)
 
 ) where
 
@@ -10,24 +28,22 @@ import Prelude hiding (foldr, foldl, fmap, (>>=), fail, (>>))
 
 
 -- why did I put f and g in this order?  does it matter?
-class Composer c g | c -> g where
---  open  :: c f g a -> f (g a)   -- pure?
---  close :: f (g a) -> c f g a  -- extract?
+class Composer' c g | c -> g where
   open  :: c f a -> f (g a)
   close :: f (g a) -> c f a
 
 
-pure2 :: (Pointed' f, Pointed' g, Composer c g) => a -> c f a
+pure2 :: (Pointed' f, Pointed' g, Composer' c g) => a -> c f a
 pure2 = close . pure . pure
 
-fmap2 :: (Functor' f, Functor' g, Composer c g) => (a -> b) -> c f a -> c f b
+fmap2 :: (Functor' f, Functor' g, Composer' c g) => (a -> b) -> c f a -> c f b
 fmap2 f = close . fmap (fmap f) . open
 
 -- note that this type could actually be more general
-app2 :: (Pointed' f, Applicative' f, Applicative' g, Composer c g) => c f (a -> b) -> c f a -> c f b
+app2 :: (Pointed' f, Applicative' f, Applicative' g, Composer' c g) => c f (a -> b) -> c f a -> c f b
 app2 f x = close (pure (<*>) <*> open f <*> open x)
 
-join2 :: (Traversable' g, Monad' g, Monad' f, Composer c g) => c f (c f a) -> c f a
+join2 :: (Traversable' g, Monad' g, Monad' f, Composer' c g) => c f (c f a) -> c f a
 join2 = 
     close              .
     fmap join          .
@@ -46,7 +62,7 @@ class MonadTrans' t where
 newtype MaybeT m a
     = MaybeT {getMaybeT :: m (Maybe a)}
 
-instance Composer MaybeT Maybe where
+instance Composer' MaybeT Maybe where
   open   =  getMaybeT
   close  =  MaybeT
 
@@ -78,13 +94,15 @@ instance MonadTrans' MaybeT where
   lift = MaybeT . fmap Just
 
 
+
+-- * -> (* -> *) -> * -> *
 newtype WriterT w m a
     = WriterT {getWriterT :: m (w, a)}
 
 instance Show (m (w, a)) => Show (WriterT w m a) where
   show = show . getWriterT
 
-instance Composer (WriterT w) ((,) w) where
+instance Composer' (WriterT w) ((,) w) where
   open   =  getWriterT
   close  =  WriterT
 
@@ -103,27 +121,35 @@ instance (Monad' m, Monoid' w) => Monad' (WriterT w m) where
 -- instance Semigroup' m => Semigroup' (WriterT w m) where
 --  WriterT x <|> WriterT y = 
 
-tell :: Pointed' m => a -> w -> WriterT w m a
-tell y x = WriterT (pure (x, y))
+say :: Pointed' m => w -> WriterT w m ()
+-- say :: w -> (w, ())
+-- say l = (l, ())
+say l = WriterT (pure (l, ()))
 
-f :: Int -> WriterT String Maybe Int
-f x 
-  | x > 5       =  tell (x * 2) "oh shit, it worked"
-  | otherwise   =  WriterT Nothing
+instance Monoid' w => MonadTrans' (WriterT w) where
+  -- m a -> WriterT w m a
+  -- m a -> WriterT (m (w, a))
+  -- m a -> m (w, a)
+  lift m = WriterT (m >>= \x -> pure (empty, x))
 
-g :: Int -> Int -> WriterT String Maybe Int
-g _ 0 = WriterT Nothing
-g x y = tell (x `div` y) "awesome"
+class (Monad' m, Monoid' w) => MonadWriter w m | m -> w where
+  write :: w -> m (w, ())
 
-g' :: Int -> Int -> MaybeT ((,) [String]) Int
-g' _ 0 = MaybeT (["oh fuck, we got 0"], Nothing)
-g' x y = MaybeT (["whew"],              Just (x `div` y))
+instance (Monoid' w, Monad' m) => MonadWriter w (WriterT w m) where
+  write x = pure (x, ())
+
+instance MonadWriter w m => MonadWriter w (StateT s m) where
+  -- w -> StateT s m (w, ())
+  -- w -> s -> m (s, (w, ())
+--  write x = 
+  write = lift . write
 
 
 
+-- * -> (* -> *) -> * -> *
 newtype StateT s m a = StateT {getStateT :: s -> m (s, a)}
 
--- instance Composer (StateT s) where
+-- instance Composer' (StateT s) where
   
 instance Functor' m => Functor' (StateT s m) where
   fmap f (StateT g) = StateT (fmap (fmap f) . g)
@@ -156,27 +182,36 @@ instance Semigroup' (m (s, a)) => Semigroup' (StateT s m a) where
 instance Monoid' (m (s, a)) => Monoid' (StateT s m a) where
   empty = StateT (const empty)
 
-getT :: Pointed' m => StateT s m s
-getT = StateT (\s -> pure (s, s))
+instance MonadTrans' (StateT s) where
+  -- Monad' m => m a -> StateT s m a
+  -- m a -> s -> m (s, a)
+  lift m = StateT h
+    where
+      h s = 
+          m >>= \x -> 
+          pure (s, x)
 
-putT :: Pointed' m => s -> StateT s m ()
-putT s = StateT (\_ -> pure (s, ()))
+class Monad' m => MonadState s m | m -> s where
+  get :: m s
+  put :: s -> m ()
 
+instance MonadState s (State s) where
+  get  =  fetch
+  put  =  set
 
-type Parser t m a = StateT [t] m a
+instance Monad' m => MonadState s (StateT s m) where
+  get    =  StateT (\s -> pure (s, s))
+  put s  =  StateT (\_ -> pure (s, ()))
 
-getOne :: (Monad' m, Monoid' (m ([t], t))) => Parser t m t
-getOne = 
-    getT >>= \xs -> case xs of 
-                    (y:ys)  ->  putT ys >> pure y;
-                    []      ->  empty;
+-- does this overlap with the next instance below? ???
+instance MonadState s m => MonadState s (MaybeT m) where
+  get  =  lift get
+  put  =  lift . put
 
-class (Monad' m) => MonadParser t m | m -> t where
-  item :: m t
-
-instance (Monoid' (m ([t], t)), Monad' m) => MonadParser t (StateT [t] m) where
-  -- StateT [t] m t
-  item = getOne
-
--- newtype CounterParser -- <=== counts newlines and spaces ... maybe just
--- has to wrap/unwrap the StateT instances for Functor, Pointed, etc.?
+instance (MonadTrans' t, MonadState s m, Monad' (t m)) => MonadState s (t m) where
+  -- m s
+  -- s -> (s, s)
+  get  =  lift get
+  -- s -> m ()
+  -- s -> t -> (s, ())
+  put  =  lift . put

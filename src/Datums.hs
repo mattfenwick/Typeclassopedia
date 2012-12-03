@@ -9,7 +9,7 @@ module Datums (
   , Id (..)
 
   , State (..)
-  , get
+  , fetch
   , set
     
   , Product (Product)
@@ -57,8 +57,8 @@ newtype State s a
 set :: s -> State s ()
 set s = State (\_ -> (s, ()))
 
-get :: State s s
-get = State (\s -> (s, s))
+fetch :: State s s
+fetch = State (\s -> (s, s))
 
   
 
