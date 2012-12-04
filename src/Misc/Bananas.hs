@@ -1,4 +1,4 @@
-module Bananas (
+module Misc.Bananas (
 
 ) where
 
