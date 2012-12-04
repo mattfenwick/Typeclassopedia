@@ -30,6 +30,13 @@ module Classes (
   , mconcat
   , guard
   
+  , APlus'
+  , (<+>)
+  
+  , AZero'
+  , zero
+  , guardA
+  
   , Switch'
   , switch
 
@@ -82,6 +89,14 @@ class Semigroup' a where
 
 class Semigroup' a => Monoid' a where
   empty :: a
+
+
+class APlus' f where
+  (<+>) :: f a -> f a -> f a
+
+
+class APlus' f => AZero' f where
+  zero :: f a
   
   
 class Switch' f where
@@ -123,8 +138,13 @@ mconcat = Prelude.foldr (<|>) empty
 
 
 guard :: (Pointed' m, Monoid' (m ())) => Bool -> m ()
-guard True = pure ()
-guard False = empty
+guard True   =  pure ()
+guard False  =  empty
+
+
+guardA :: (Pointed' m, AZero' m) => Bool -> m ()
+guardA True   =  pure ()
+guardA False  =  zero
 
 
 foldl :: Foldable' t => (b -> a -> b) -> b -> t a -> b

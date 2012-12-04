@@ -104,6 +104,12 @@ instance Semigroup' [a] where
 instance Monoid' [a] where
   empty = []
 
+instance APlus' [] where
+  (<+>)  =  (++)
+
+instance AZero' [] where
+  zero    =  []
+
 instance Switch' [] where
   switch []     = [()]
   switch (_:_)  = []
@@ -177,6 +183,13 @@ instance Semigroup' (Maybe a) where
  
 instance Monoid' (Maybe a) where
   empty           = Nothing
+
+instance APlus' Maybe where
+  Just x   <+>  _  =  Just x
+  Nothing  <+>  y  =  y
+
+instance AZero' Maybe where
+  zero = Nothing
   
 instance Switch' Maybe where
   switch Nothing   = Just ()
@@ -194,26 +207,36 @@ instance Traversable' Maybe where
 
 
 instance Functor' (Either a) where
-  fmap _ (Left x)  = Left x
-  fmap f (Right r) = Right (f r)
+  fmap _ (Left x)   =  Left x
+  fmap f (Right r)  =  Right (f r)
 
 instance Applicative' (Either a) where
-  Left x  <*> _ = Left x
-  Right f <*> x = fmap f x
+  Left x   <*>   _   =  Left x
+  Right f  <*>   x   =  fmap f x
 
 instance Pointed' (Either a) where
   pure = Right
 
 instance Monad' (Either a) where
-  join (Right (Right z)) = Right z
-  join (Right (Left z))  = Left z
-  join (Left y)          = Left y
+  join (Right (Right z))  =  Right z
+  join (Right (Left z))   =  Left z
+  join (Left y)           =  Left y
 
+-- left-bias both success and failure
 instance Semigroup' (Either a b) where
-  Right x <|>    _    = Right x
-  _       <|> Right y = Right y
-  z       <|>    _    = z
-  
+  Right x  <|>     _     =  Right x
+  _        <|>  Right z  =  Right z 
+  Left y   <|>     _     =  Left y
+
+instance Monoid' a => Monoid' (Either a b) where
+  empty = Left empty
+
+instance APlus' (Either a) where
+  (<+>) = (<|>)
+
+instance Monoid' a => AZero' (Either a) where
+  zero = Left empty  
+
 instance Foldable' (Either a) where
   foldr _ base (Left _) = base
   foldr f base (Right x) = f x base
@@ -242,6 +265,12 @@ instance Copointed' Id where
   
 instance Comonad' Id where
   duplicate (Id x) = Id (Id x)
+
+instance Semigroup' a => Semigroup' (Id a) where
+  Id x  <|>  Id y  =  Id  (x <|> y)
+
+instance Monoid' a => Monoid' (Id a) where
+  empty = Id empty
   
 instance Foldable' Id where
   foldr f base (Id x) = f x base
@@ -269,6 +298,7 @@ instance Monad' (State s) where
   -- :: s -> (s, s -> (s, a)) -> s -> (s, a)
   join (State s1) = State (\s -> let (s', s2) = s1 s
                                  in getState s2 s')
+
 
 
 
