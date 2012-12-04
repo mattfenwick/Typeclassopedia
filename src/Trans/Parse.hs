@@ -1,4 +1,4 @@
-{-# LANGUAGE NoMonomorphismRestriction, FunctionalDependencies, UndecidableInstances, FlexibleInstances #-}
+{-# LANGUAGE NoMonomorphismRestriction, FunctionalDependencies, FlexibleInstances, FlexibleContexts #-}
 module Trans.Parse (
 
 ) where
@@ -29,11 +29,11 @@ instance Pointed' m => Pointed' (Parser t m) where
 instance Monad' m => Applicative' (Parser t m) where
   Parser f <*> Parser x = Parser (f <*> x)
 
-instance Semigroup' (m ([t], a)) => Semigroup' (Parser t m a) where
-  Parser f <|> Parser g = Parser (f <|> g)
+instance APlus' m => APlus' (Parser t m) where
+  Parser x  <+>  Parser y  =  Parser (x <+> y)
 
-instance Monoid' (m ([t], a)) => Monoid' (Parser t m a) where
-  empty = Parser empty
+instance AZero' m => AZero' (Parser t m) where
+  zero = Parser zero
 
 instance Monad' m => Monad' (Parser t m) where
   -- Parser t m (Parser t m a) -> Parser t m a
@@ -43,13 +43,13 @@ instance Monad' m => MonadState [t] (Parser t m) where
   get    =  Parser get
   put x  =  Parser (put x)
 
-getOne :: (Monad' m, Monoid' (m ([t], t))) => Parser t m t
+getOne :: (Monad' m, AZero' m) => Parser t m t
 getOne = 
     get >>= \xs -> case xs of 
                    (y:ys)  ->  put ys >> pure y;
-                   []      ->  Parser empty; 
+                   []      ->  Parser zero; 
 
-instance (Monoid' (m ([t], t)), Monad' m) => MonadParser t (Parser t m) where
+instance (AZero' m, Monad' m) => MonadParser t (Parser t m) where
   -- StateT [t] m t
   item = getOne
 
@@ -66,8 +66,23 @@ instance MonadTrans' (Parser t) where
 -- a 'count' parser
 -- <=== counts newlines and spaces ... maybe just
 --   has to wrap/unwrap the StateT instances for Functor, Pointed, etc.?
+-- can I change this to:  :: StateT (Int, Int) m a
+--   then for the MonadParser instance, m will be constrained to 
+--   be a parser or whatever
 newtype CntParser m a 
     = CntParser {getCntParser :: StateT (Int, Int) (Parser Char m) a}
+-- here's the stack:
+--  StateT (Int, Int)
+--  Parser Char
+--  m
+
+-- okay, this is cool, but still don't know how to 
+-- lift a general parser action into the top level
+parserGet :: Monad' m => CntParser m String
+parserGet = CntParser (StateT (\ints -> get >>= \cs -> pure (ints, cs)))
+
+parserPut :: Monad' m => String -> CntParser m ()
+parserPut cs = CntParser (StateT (\ints -> put cs >> pure (ints, ())))
 
 
 instance Functor' m => Functor' (CntParser m) where
@@ -86,6 +101,12 @@ instance Monad' m => MonadState (Int, Int) (CntParser m) where
   get  =  CntParser  get
   put  =  CntParser  .  put
 
+instance APlus' m => APlus' (CntParser m) where
+  CntParser f  <+>  CntParser g  =  CntParser (f <+> g)
+
+instance AZero' m => AZero' (CntParser m) where
+  zero  =  CntParser zero
+
 instance MonadTrans' CntParser where
   -- m a -> CntParser m a
   -- m a -> StateT (Int, Int) (Parser Char m) a
@@ -98,30 +119,85 @@ instance MonadTrans' CntParser where
     where
       h = StateT (\ints -> Parser (StateT (\s -> m >>= \x -> pure (s, (ints, x)))))
 
-liftMe :: Parser Char m a -> CntParser m a
--- Parser Char m a -> StateT (Int, Int) (Parser Char m) a
--- ... -> (Int, Int) -> Parser Char m ((Int, Int), a)
--- (String -> m (String, a)) -> (Int, Int) -> String -> m (String, ((Int, Int), a))
-liftMe = error "undefined !!!"
 
-{-
-instance (Monoid' (m (String, ((Int, Int), Char))), Monad' m) => MonadParser Char (CntParser m) where
-  -- CntParser t m t
+instance (AZero' m, Monad' m) => MonadParser Char (CntParser m) where
   item =
-      lift get >>= \xs -> case xs of
-                          (' ':ys)  -> get             >>= \(s, n) -> 
-                                       put (s + 1, n)  >> 
-                                       lift (put ys)   >> 
-                                       pure ' ';
-                          ('\n':ys) -> get             >>= \(s, n) -> 
-                                       put (0, n + 1)  >> 
-                                       lift (put ys)   >> 
-                                       pure '\n';
-                          []        -> CntParser empty;
+      parserGet >>= \xs -> case xs of
+                           (' ':ys)  -> get             >>= \(s, n) -> 
+                                        put (s + 1, n)  >> 
+                                        parserPut ys    >> 
+                                        pure ' ';
+                           ('\n':ys) -> get             >>= \(s, n) -> 
+                                        put (0, n + 1)  >> 
+                                        parserPut ys    >> 
+                                        pure '\n';
+                           (y:ys)    -> parserPut ys    >>
+                                        pure y;
+                           []        -> zero;
+
 
 runParser :: CntParser m a -> (Int, Int) -> String -> m (String, ((Int, Int), a))
 runParser p s ts = getStateT (getParser (getStateT (getCntParser p) s)) ts
 
-parse1 :: CntParser (Parser Char Maybe) Char
+
+parse1 :: CntParser Maybe Char
 parse1 = item
--}
+
+-- combinators
+
+check :: (AZero' m, MonadParser t m) => (a -> Bool) -> m a -> m a
+check f p =
+    p            >>= \x ->
+    guardA (f x)  >>
+    pure x
+
+satisfy :: (MonadParser a m, AZero' m) => (a -> Bool) -> m a
+satisfy p = check p item
+
+literal :: (Eq a, MonadParser a m, AZero' m) => a -> m a
+literal tok = satisfy (== tok)
+
+(*>) :: Applicative' f => f a -> f b -> f b
+l *> r = fmap (flip const) l <*> r 
+
+(<*) :: Applicative' f => f a -> f b -> f a
+l <* r = fmap const l <*> r
+
+many :: (Pointed' f, APlus' f, Applicative' f) => f a -> f [a]
+many p = some p <+> pure []
+
+some :: (Pointed' f, APlus' f, Applicative' f) => f a -> f [a]
+some p = fmap (:) p <*> many p
+
+optional :: (Pointed' f1, AZero' f1, Pointed' f, Functor' f, APlus' f) =>
+     f a -> f (f1 a)
+optional p = fmap pure p  <+>  pure zero
+
+optionalM :: (Pointed' f, APlus' f) => a -> f a -> f a
+optionalM x p = p <+> pure x
+
+sepBy1 :: (Pointed' f, Applicative' f, APlus' f) =>
+     f a -> f a1 -> f ([a], [a1])
+sepBy1 p s = fmap g p <*> (liftA2 f s (sepBy1 p s) <+> pure ([], []))
+  where 
+    f a (b, c) = (b, a:c)
+    g x (y, z) = (x:y, z)
+    
+sepBy0 :: (Pointed' f, Applicative' f, APlus' f) =>
+     f a -> f a1 -> f ([a], [a1])
+sepBy0 p s = sepBy1 p s <+> pure ([], [])
+
+end :: (Switch' (Parser a m), Monad' m, AZero' m) => Parser a m ()
+end = switch getOne
+
+not1 :: (Switch' (Parser b m), Monad' m, AZero' m) => Parser b m a -> Parser b m b
+not1 p = switch p *> getOne
+
+pnot :: (Eq a, MonadParser a m, AZero' m) => a -> m a
+pnot x = satisfy (/= x)
+
+pnone :: (Eq a, MonadParser a m, AZero' m) => [a] -> m a
+pnone xs = satisfy (\x -> not $ elem x xs)
+
+string :: (Eq a, MonadParser a f, AZero' f) => [a] -> f [a]
+string = commute . map literal

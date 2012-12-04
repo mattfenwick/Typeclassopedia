@@ -182,6 +182,14 @@ instance Semigroup' (m (s, a)) => Semigroup' (StateT s m a) where
 instance Monoid' (m (s, a)) => Monoid' (StateT s m a) where
   empty = StateT (const empty)
 
+instance APlus' m => APlus' (StateT s m) where
+  -- (s -> m (s, a)) -> (s -> m (s, a)) -> s -> m (s, a)
+  StateT f  <+>  StateT g  =  StateT (\s -> f s <+> g s)
+  
+instance AZero' m => AZero' (StateT s m) where
+  -- s -> m (s, a)
+  zero = StateT (const zero)
+
 instance MonadTrans' (StateT s) where
   -- Monad' m => m a -> StateT s m a
   -- m a -> s -> m (s, a)
