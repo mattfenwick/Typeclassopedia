@@ -1,5 +1,13 @@
-{-# LANGUAGE NoMonomorphismRestriction, FunctionalDependencies, FlexibleInstances, FlexibleContexts #-}
+{-# LANGUAGE NoMonomorphismRestriction, FunctionalDependencies, FlexibleInstances #-}
 module Trans.Parse (
+
+    MonadParser(..)
+
+  , Parser(..)
+
+  , CntParser(..)
+  , parse1
+  , runParser
 
 ) where
 
@@ -47,7 +55,7 @@ getOne :: (Monad' m, AZero' m) => Parser t m t
 getOne = 
     get >>= \xs -> case xs of 
                    (y:ys)  ->  put ys >> pure y;
-                   []      ->  Parser zero; 
+                   []      ->  zero; 
 
 instance (AZero' m, Monad' m) => MonadParser t (Parser t m) where
   -- StateT [t] m t
@@ -142,62 +150,3 @@ runParser p s ts = getStateT (getParser (getStateT (getCntParser p) s)) ts
 
 parse1 :: CntParser Maybe Char
 parse1 = item
-
--- combinators
-
-check :: (AZero' m, MonadParser t m) => (a -> Bool) -> m a -> m a
-check f p =
-    p            >>= \x ->
-    guardA (f x)  >>
-    pure x
-
-satisfy :: (MonadParser a m, AZero' m) => (a -> Bool) -> m a
-satisfy p = check p item
-
-literal :: (Eq a, MonadParser a m, AZero' m) => a -> m a
-literal tok = satisfy (== tok)
-
-(*>) :: Applicative' f => f a -> f b -> f b
-l *> r = fmap (flip const) l <*> r 
-
-(<*) :: Applicative' f => f a -> f b -> f a
-l <* r = fmap const l <*> r
-
-many :: (Pointed' f, APlus' f, Applicative' f) => f a -> f [a]
-many p = some p <+> pure []
-
-some :: (Pointed' f, APlus' f, Applicative' f) => f a -> f [a]
-some p = fmap (:) p <*> many p
-
-optional :: (Pointed' f1, AZero' f1, Pointed' f, Functor' f, APlus' f) =>
-     f a -> f (f1 a)
-optional p = fmap pure p  <+>  pure zero
-
-optionalM :: (Pointed' f, APlus' f) => a -> f a -> f a
-optionalM x p = p <+> pure x
-
-sepBy1 :: (Pointed' f, Applicative' f, APlus' f) =>
-     f a -> f a1 -> f ([a], [a1])
-sepBy1 p s = fmap g p <*> (liftA2 f s (sepBy1 p s) <+> pure ([], []))
-  where 
-    f a (b, c) = (b, a:c)
-    g x (y, z) = (x:y, z)
-    
-sepBy0 :: (Pointed' f, Applicative' f, APlus' f) =>
-     f a -> f a1 -> f ([a], [a1])
-sepBy0 p s = sepBy1 p s <+> pure ([], [])
-
-end :: (Switch' (Parser a m), Monad' m, AZero' m) => Parser a m ()
-end = switch getOne
-
-not1 :: (Switch' (Parser b m), Monad' m, AZero' m) => Parser b m a -> Parser b m b
-not1 p = switch p *> getOne
-
-pnot :: (Eq a, MonadParser a m, AZero' m) => a -> m a
-pnot x = satisfy (/= x)
-
-pnone :: (Eq a, MonadParser a m, AZero' m) => [a] -> m a
-pnone xs = satisfy (\x -> not $ elem x xs)
-
-string :: (Eq a, MonadParser a f, AZero' f) => [a] -> f [a]
-string = commute . map literal
