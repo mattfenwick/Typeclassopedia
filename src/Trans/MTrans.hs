@@ -225,3 +225,45 @@ instance (MonadTrans' t, MonadState s m, Monad' (t m)) => MonadState s (t m) whe
   -- s -> t -> (s, ())
   put  =  lift . put
 -}
+
+
+
+newtype ErrorT e m a
+    = ErrorT {getErrorT :: m (Either e a)}
+
+instance Composer' (ErrorT e) (Either e) where
+  -- ErrorT m a -> m (Either e a)
+  open = getErrorT
+  -- m (Either e a) -> ErrorT m a
+  close = ErrorT
+
+instance Functor' m => Functor' (ErrorT e m) where
+  fmap = fmap2
+
+instance Pointed' m => Pointed' (ErrorT e m) where
+  pure = pure2
+
+instance (Pointed' m, Applicative' m) => Applicative' (ErrorT e m) where
+  (<*>) = app2
+
+instance (Monad' m) => Monad' (ErrorT e m) where
+  join = join2
+
+instance MonadTrans' (ErrorT e) where
+  -- m a -> ErrorT e m a
+  -- m a -> m (Either e a)
+  lift m = ErrorT (m >>= (pure . Right))
+
+class Monad' m => MonadError e m | m -> e where
+  throwE :: e -> m a 
+  catchE :: m a -> (e -> m a) -> m a
+
+instance Monad' m => MonadError e (ErrorT e m) where
+  -- e -> ErrorT e m a
+  -- e -> m (Either e a)
+  throwE = ErrorT . pure . Left
+  -- m a -> (e -> m a) -> m a
+  -- ErrorT e m a -> (e -> ErrorT e m a) -> ErrorT e m a
+  -- TODO:  crap, can't use pattern-matching here
+  catchE (ErrorT (Right x))  _  =  ErrorT (Right x)
+  catchE (ErrorT (Left e))   f  =  f e
