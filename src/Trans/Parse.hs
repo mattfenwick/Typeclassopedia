@@ -29,6 +29,12 @@ instance Pointed' m => Pointed' (Parser t m) where
 instance Monad' m => Applicative' (Parser t m) where
   Parser f <*> Parser x = Parser (f <*> x)
 
+instance Semigroup' (m ([t], a)) => Semigroup' (Parser t m a) where
+  Parser f <|> Parser g = Parser (f <|> g)
+
+instance Monoid' (m ([t], a)) => Monoid' (Parser t m a) where
+  empty = Parser empty
+
 instance Monad' m => Monad' (Parser t m) where
   -- Parser t m (Parser t m a) -> Parser t m a
   join = Parser . join . fmap getParser . getParser
@@ -46,6 +52,14 @@ getOne =
 instance (Monoid' (m ([t], t)), Monad' m) => MonadParser t (Parser t m) where
   -- StateT [t] m t
   item = getOne
+
+instance MonadTrans' (Parser t) where
+  -- m a -> Parser t m a
+  -- m a -> StateT [t] m a
+  -- m a -> [t] -> m ([t], a)
+  lift m = Parser h
+    where
+      h = StateT (\ts -> m >>= \x -> pure (ts, x))
 
 
 
@@ -76,18 +90,38 @@ instance MonadTrans' CntParser where
   -- m a -> CntParser m a
   -- m a -> StateT (Int, Int) (Parser Char m) a
   -- m a -> (Int, Int) -> (Parser Char m) ((Int, Int), a)
-  -- m a -> (Int, Int) -> String -> ((Int, Int), (String, a))
+  -- m a -> (Int, Int) -> String -> m (String, ((Int, Int), a))
   -- so just need to grab the two states and tuple 'em up or
   -- whatever with the value from the monad ... why is this
   -- so f***ing hard to do?
-  lift m = 
-      CntParser (StateT (\s1 -> m >>= \x -> pure x))
+  lift m = CntParser h
+    where
+      h = StateT (\ints -> Parser (StateT (\s -> m >>= \x -> pure (s, (ints, x)))))
 
-instance Monad' m => MonadParser Char (CntParser m) where
+liftMe :: Parser Char m a -> CntParser m a
+-- Parser Char m a -> StateT (Int, Int) (Parser Char m) a
+-- ... -> (Int, Int) -> Parser Char m ((Int, Int), a)
+-- (String -> m (String, a)) -> (Int, Int) -> String -> m (String, ((Int, Int), a))
+liftMe = error "undefined !!!"
+
+{-
+instance (Monoid' (m (String, ((Int, Int), Char))), Monad' m) => MonadParser Char (CntParser m) where
   -- CntParser t m t
   item =
       lift get >>= \xs -> case xs of
-                          (' ':ys)  -> get >>= \(s, n) -> put (s + 1, n) >> lift (put ys) >> pure ' ';
-                          ('\n':ys) -> get >>= \(s, n) -> put (0, n + 1) >> lift (put ys) >> pure '\n';
+                          (' ':ys)  -> get             >>= \(s, n) -> 
+                                       put (s + 1, n)  >> 
+                                       lift (put ys)   >> 
+                                       pure ' ';
+                          ('\n':ys) -> get             >>= \(s, n) -> 
+                                       put (0, n + 1)  >> 
+                                       lift (put ys)   >> 
+                                       pure '\n';
                           []        -> CntParser empty;
-   
+
+runParser :: CntParser m a -> (Int, Int) -> String -> m (String, ((Int, Int), a))
+runParser p s ts = getStateT (getParser (getStateT (getCntParser p) s)) ts
+
+parse1 :: CntParser (Parser Char Maybe) Char
+parse1 = item
+-}
