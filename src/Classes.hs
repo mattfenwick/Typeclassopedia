@@ -37,6 +37,9 @@ module Classes (
   , zero
   , guardA
   
+  , IsZero'
+  , isZero
+  
   , Switch'
   , switch
 
@@ -97,6 +100,10 @@ class APlus' f where
 
 class APlus' f => AZero' f where
   zero :: f a
+
+
+class AZero' f => IsZero' f where
+  isZero :: f a -> Bool
   
   
 class Switch' f where

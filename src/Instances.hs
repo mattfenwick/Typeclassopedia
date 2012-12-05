@@ -110,6 +110,10 @@ instance APlus' [] where
 instance AZero' [] where
   zero    =  []
 
+instance IsZero' [] where
+  isZero  []  =  True
+  isZero  _   =  False
+
 instance Switch' [] where
   switch []     = [()]
   switch (_:_)  = []
@@ -190,7 +194,11 @@ instance APlus' Maybe where
 
 instance AZero' Maybe where
   zero = Nothing
-  
+
+instance IsZero' Maybe where
+  isZero  Nothing  =  True
+  isZero     _     =  False
+
 instance Switch' Maybe where
   switch Nothing   = Just ()
   switch (Just _)  = Nothing
@@ -235,7 +243,11 @@ instance APlus' (Either a) where
   (<+>) = (<|>)
 
 instance Monoid' a => AZero' (Either a) where
-  zero = Left empty  
+  zero = Left empty
+
+instance Monoid' a => IsZero' (Either a) where
+  isZero  (Left _)   =  True
+  isZero  (Right _)  =  False
 
 instance Foldable' (Either a) where
   foldr _ base (Left _) = base
