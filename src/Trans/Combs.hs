@@ -19,6 +19,8 @@ module Trans.Combs (
   , pnot
   , pnone
   , string
+  
+  , commit
 
 ) where
 
@@ -27,6 +29,7 @@ import Datums
 import Instances
 import Prelude hiding (foldr, foldl, fmap, (>>=), fail, (>>))
 import Trans.Parse
+import Trans.MTrans
 
 
 check :: (AZero' m, Monad' m) => (a -> Bool) -> m a -> m a
@@ -84,12 +87,12 @@ pnone xs = satisfy (\x -> not $ elem x xs)
 string :: (Eq a, MonadParser a f, AZero' f) => [a] -> f [a]
 string = commute . map literal
 
--- success -> success
--- failure -> error
-commit :: Parser a -> Parser a -- <== oops, not real !!
-commit p = ?Constructor? h -- <== how do I construct a parser if only have a type class?
-  where
-    h ts = let result = getParser p ts
-           in if isFail result -- <== how do I determine if it's fail/zero?
-              then throwE ts
-              else result
+
+commit p =
+    get >>= \tokens ->
+    p >>= \x -> if isZero x   
+                then throwE tokens
+                else pure x
+-- ^^^ how does this work with, say, non-deterministic parsers?  
+--   the intent is for 'x' to hold all the parse results; 
+--   is that what's actually happening here?

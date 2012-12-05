@@ -18,6 +18,9 @@ module Trans.MTrans (
 
   , StateT(..)
   , MonadState(..)
+  
+  , ErrorT(..)
+  , MonadError(..)
 
 ) where
 
@@ -32,6 +35,26 @@ class Composer' c g | c -> g where
   open  :: c f a -> f (g a)
   close :: f (g a) -> c f a
 
+
+class MonadTrans' t where
+  lift :: Monad' m => m a -> t m a
+
+
+class Monad' m => MonadError e m | m -> e where
+  throwE :: e -> m a 
+  catchE :: m a -> (e -> m a) -> m a
+
+
+class Monad' m => MonadState s m | m -> s where
+  get :: m s
+  put :: s -> m ()
+
+
+class (Monad' m, Monoid' w) => MonadWriter w m | m -> w where
+  write :: w -> m (w, ())
+
+
+-- ---------------------------------------------------------------------
 
 pure2 :: (Pointed' f, Pointed' g, Composer' c g) => a -> c f a
 pure2 = close . pure . pure
@@ -53,10 +76,7 @@ join2 =
     open
 
 
-class MonadTrans' t where
-  lift :: Monad' m => m a -> t m a
-
-
+-- ---------------------------------------------------------------------
 
 -- (* -> *) -> * -> *
 newtype MaybeT m a
@@ -88,10 +108,20 @@ instance Monad' m => Monad' (MaybeT m) where
   -- m (Maybe (m (Maybe a))) -> m (Maybe a)
   join = join2
 
-instance MonadTrans' MaybeT where
-  -- m a -> MaybeT m a
-  -- m a -> m (Maybe a)
-  lift = MaybeT . fmap Just
+instance APlus' m => APlus' (MaybeT m) where
+  -- MaybeT m a -> MaybeT m a -> MaybeT m a
+  -- m (Maybe a) -> m (Maybe a) -> m (Maybe a)
+  MaybeT l  <+>  MaybeT r   =  MaybeT (l <+> r)
+
+instance AZero' m => AZero' (MaybeT m) where
+  -- MaybeT m a
+  -- m (Maybe a)
+  zero = MaybeT zero
+
+instance IsZero' m => IsZero' (MaybeT m) where
+  -- MaybeT m a -> Bool
+  -- m (Maybe a) -> Bool
+  isZero (MaybeT m)  =  isZero m
 
 
 
@@ -125,24 +155,6 @@ say :: Pointed' m => w -> WriterT w m ()
 -- say :: w -> (w, ())
 -- say l = (l, ())
 say l = WriterT (pure (l, ()))
-
-instance Monoid' w => MonadTrans' (WriterT w) where
-  -- m a -> WriterT w m a
-  -- m a -> WriterT (m (w, a))
-  -- m a -> m (w, a)
-  lift m = WriterT (m >>= \x -> pure (empty, x))
-
-class (Monad' m, Monoid' w) => MonadWriter w m | m -> w where
-  write :: w -> m (w, ())
-
-instance (Monoid' w, Monad' m) => MonadWriter w (WriterT w m) where
-  write x = pure (x, ())
-
-instance MonadWriter w m => MonadWriter w (StateT s m) where
-  -- w -> StateT s m (w, ())
-  -- w -> s -> m (s, (w, ())
---  write x = 
-  write = lift . write
 
 
 
@@ -190,42 +202,6 @@ instance AZero' m => AZero' (StateT s m) where
   -- s -> m (s, a)
   zero = StateT (const zero)
 
-instance MonadTrans' (StateT s) where
-  -- Monad' m => m a -> StateT s m a
-  -- m a -> s -> m (s, a)
-  lift m = StateT h
-    where
-      h s = 
-          m >>= \x -> 
-          pure (s, x)
-
-class Monad' m => MonadState s m | m -> s where
-  get :: m s
-  put :: s -> m ()
-
-instance MonadState s (State s) where
-  get  =  fetch
-  put  =  set
-
-instance Monad' m => MonadState s (StateT s m) where
-  get    =  StateT (\s -> pure (s, s))
-  put s  =  StateT (\_ -> pure (s, ()))
-
--- does this overlap with the next instance below? ???
-instance MonadState s m => MonadState s (MaybeT m) where
-  get  =  lift get
-  put  =  lift . put
-
-{-
-instance (MonadTrans' t, MonadState s m, Monad' (t m)) => MonadState s (t m) where
-  -- m s
-  -- s -> (s, s)
-  get  =  lift get
-  -- s -> m ()
-  -- s -> t -> (s, ())
-  put  =  lift . put
--}
-
 
 
 newtype ErrorT e m a
@@ -248,31 +224,3 @@ instance (Pointed' m, Applicative' m) => Applicative' (ErrorT e m) where
 
 instance (Monad' m) => Monad' (ErrorT e m) where
   join = join2
-
-instance MonadTrans' (ErrorT e) where
-  -- m a -> ErrorT e m a
-  -- m a -> m (Either e a)
-  lift m = ErrorT (m >>= (pure . Right))
-
-class Monad' m => MonadError e m | m -> e where
-  throwE :: e -> m a 
-  catchE :: m a -> (e -> m a) -> m a
-
-
-instance Monad' m => MonadError e (ErrorT e m) where
-  -- e -> ErrorT e m a
-  -- e -> m (Either e a)
-  throwE = ErrorT . pure . Left
-  -- m a -> (e -> m a) -> m a
-  -- ErrorT e m a -> (e -> ErrorT e m a) -> ErrorT e m a
-  catchE (ErrorT m) f  =  
-      ErrorT (m >>= \x -> case x of
-                            Left e   ->  getErrorT (f e) -- <== um, seriously?
-                            Right z  ->  pure $ Right z)
-
-instance MonadError e (Either e) where
-  -- e -> Either e a
-  throwE = Left
-  -- Either e a -> (e -> Either e a) -> Either e a
-  catchE (Right x)  _  =  Right x
-  catchE (Left y)   f  =  f y
