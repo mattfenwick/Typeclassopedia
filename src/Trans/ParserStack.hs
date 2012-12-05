@@ -19,15 +19,32 @@ import Trans.Instances
 -- 'Left ""' on failure ... what's going on?
 type P e t a = Parser t (MaybeT (Either e)) a
 
+type PL e t a = Parser t (ListT (Either e)) a
+
 
 run :: P e t a -> [t] -> Either e (Maybe ([t], a))
 run p tokens = getMaybeT (getStateT (getParser p) tokens)
+
+
+runL :: PL e t a -> [t] -> Either e [([t], a)]
+runL p tokens = getListT (getStateT (getParser p) tokens)
 
 
 str :: P String Char String
 str = literal '"' *> commit rest
   where
     rest = many (pnot '"') <* literal '"'
+
+
+com p =
+    get >>= \s ->
+    ((fmap Just (p s)) <+> (pure Nothing)) >>= \x ->
+      case x of
+           (Just y) -> y;
+           Nothing  -> undefined;
+
+duh p =
+    fmap Just p <+> pure Nothing
 
 
 
