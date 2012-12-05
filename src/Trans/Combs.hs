@@ -19,8 +19,6 @@ module Trans.Combs (
   , pnot
   , pnone
   , string
-  
-  , commit
 
 ) where
 
@@ -86,13 +84,3 @@ pnone xs = satisfy (\x -> not $ elem x xs)
 
 string :: (Eq a, MonadParser a f, AZero' f) => [a] -> f [a]
 string = commute . map literal
-
-
-commit p =
-    get >>= \tokens ->
-    p >>= \x -> if isZero x   
-                then throwE tokens
-                else pure x
--- ^^^ how does this work with, say, non-deterministic parsers?  
---   the intent is for 'x' to hold all the parse results; 
---   is that what's actually happening here?

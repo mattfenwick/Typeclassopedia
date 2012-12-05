@@ -2,6 +2,7 @@
 module Trans.Parse (
 
     MonadParser(..)
+  , CommitParser(..)
 
   , Parser(..)
   
@@ -19,6 +20,10 @@ import Trans.MTrans
 
 class (Monad' m) => MonadParser t m | m -> t where
   item :: m t
+
+
+class MonadParser t m => CommitParser t m | m -> t where
+  commit :: m a -> m a
 
 
 

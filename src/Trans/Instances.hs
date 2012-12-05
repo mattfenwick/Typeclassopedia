@@ -153,6 +153,15 @@ instance (AZero' m, Monad' m) => MonadParser t (Parser t m) where
                      (y:ys)  ->  put ys >> pure y;
                      []      ->  zero;
 
+instance (IsZero' m, MonadError [t] m) => CommitParser t (Parser t m) where
+  -- Parser t m a -> Parser t m a
+  -- StateT [t] m a -> StateT [t] m a
+  -- ([t] -> m ([t], a)) -> [t] -> m ([t], a)
+  commit p = Parser (StateT (\ts -> let r = (getStateT (getParser p) ts)
+                                    in if (isZero r) 
+                                       then throwE ts
+                                       else r))
+
 -- the state is (space indentation, line number)
 -- passing a '\n' resets the space to zero
 -- this ignores tabs -- just lazy
