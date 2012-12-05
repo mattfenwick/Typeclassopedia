@@ -12,6 +12,6 @@ ReaderT r m a :: r -> m a               t c.  t -> c
 
 WriterT w m a :: m (a, w)               x b. (b, x)
 
-ContT r m a   :: (a -> m r) -> m r      ??? (b -> s) -> s ???
+ContT r m a   :: (a -> m r) -> m r      t b. ??? (b -> t) -> t ???
 
 ParserT s m a :: [s] -> m ([s], a)      t b. ??? [t] -> ([t], b) ???

@@ -7,6 +7,7 @@ Maybe   ErrorT     Maybe (Either e a)
 Maybe   ReaderT    r -> Maybe a
 Maybe   WriterT    Maybe (a, w)
 Maybe   ParserT    [s] -> Maybe ([s], a)
+Maybe   ContT      (a -> Maybe r) -> Maybe r
 
 State   MaybeT     t -> (Maybe a, t)
 State   StateT     s -> t -> ((a, s), t)
@@ -15,6 +16,7 @@ State   ErrorT     t -> (Either e a, t)
 State   ReaderT    r -> t -> (a, t)
 State   WriterT    t -> ((a, w), t)
 State   ParserT    [s] -> t -> (([s], a), t)
+State   ContT      (a -> t -> (r, t)) -> t -> (r, t)
 
 List    MaybeT     [Maybe a]
 List    StateT     s -> [(a, s)]
@@ -23,6 +25,7 @@ List    ErrorT     [Either e a]
 List    ReaderT    r -> [a]
 List    WriterT    [(a, w)]
 List    ParserT    [s] -> [([s], a)]
+List    ContT      (a -> [r]) -> [r]
 
 Error   MaybeT     Either f (Maybe a)
 Error   StateT     s -> Either f (a, s)
@@ -31,6 +34,7 @@ Error   ErrorT     Either f (Either e a)
 Error   ReaderT    r -> Either f a
 Error   WriterT    Either f (a, w)
 Error   ParserT    [s] -> Either f ([s], a)
+Error   ContT      (a -> Either f r) -> Either f r
 
 Reader  MaybeT     t -> Maybe a
 Reader  StateT     s -> t -> (a, s)
@@ -39,6 +43,7 @@ Reader  ErrorT     t -> Either e a
 Reader  ReaderT    r -> t -> a
 Reader  WriterT    t -> (a, w)
 Reader  ParserT    [s] -> t -> ([s], a)
+Reader  ContT      (a -> t -> r) -> t -> r
 
 Writer  MaybeT     (Maybe a, x)
 Writer  StateT     s -> ((a, s), x)
@@ -47,6 +52,7 @@ Writer  ErrorT     (Either e a, x)
 Writer  ReaderT    r -> (a, x)
 Writer  WriterT    ((a, w), x)
 Writer  ParserT    [s] -> (([s], a), x)
+Writer  ContT      (a -> (r, x)) -> (r, x)
 
 Parser  MaybeT     [t] -> ([t], Maybe a)
 Parser  StateT     s -> [t] -> ([t], (a, s))
@@ -55,6 +61,7 @@ Parser  ErrorT     [t] -> ([t], Either e a)
 Parser  ReaderT    r -> [t] -> ([t], a)
 Parser  WriterT    [t] -> ([t], (a, w))
 Parser  ParserT    [s] -> [t] -> ([t], ([s], a))
+Parser  ContT      (a -> [t] -> ([t], r)) -> [t] -> ([t], r)
 
 IO      MaybeT     IO (Maybe a)
 IO      StateT     s -> IO (a, s)
@@ -63,3 +70,12 @@ IO      ErrorT     IO (Either e a)
 IO      ReaderT    r -> IO a
 IO      WriterT    IO (a, w)
 IO      ParserT    [s] -> IO ([s], a)
+
+Cont    MaybeT     (Maybe a -> t) -> t
+Cont    StateT     s -> ((a, s) -> t) -> t
+Cont    ListT      ([a] -> t) -> t
+Cont    ErrorT     (Either e a -> t) -> t
+Cont    ReaderT    r -> (a -> t) -> t
+Cont    WriterT    ((a, w) -> t) -> t
+Cont    ContT      (a -> (r -> s) -> s) -> (r -> s) -> s
+Cont    ParserT    [s] -> (([s], a) -> t) -> t
