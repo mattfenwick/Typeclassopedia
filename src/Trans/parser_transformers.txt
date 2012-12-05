@@ -43,3 +43,9 @@ List    StateT   WriterT              s -> [((a, w), s)]
 
 -- 'error' to allow for commits
 Error   MaybeT   ParserT              [s] -> Either f (Maybe ([s], a))
+
+
+
+
+Error   ListT                         Either f [a]
+Error   ListT    ParserT              [s] -> Either f [([s], a)]

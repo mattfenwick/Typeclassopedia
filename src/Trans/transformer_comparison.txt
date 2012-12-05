@@ -1,17 +1,17 @@
-MaybeT m a    :: m (Maybe a)            b.    Maybe b
+MaybeT    m a    m (Maybe a)            b.    Maybe b
 
-StateT s m a  :: s -> m (a, s)          t b.  t -> (b, t)
+StateT  s m a    s -> m (a, s)          t b.  t -> (b, t)
 
-ListT m a     :: m [a]                  b.    [] b
+ListT     m a    m [a]                  b.    [] b
 
-IdentityT m a :: m a                    b.    b
+IdentityT m a    m a                    b.    b
 
-ErrorT e m a  :: m (Either e a)         f b.  Either f b
+ErrorT  e m a    m (Either e a)         f b.  Either f b
 
-ReaderT r m a :: r -> m a               t c.  t -> c
+ReaderT r m a    r -> m a               t c.  t -> c
 
-WriterT w m a :: m (a, w)               x b. (b, x)
+WriterT w m a    m (a, w)               x b. (b, x)
 
-ContT r m a   :: (a -> m r) -> m r      t b. ??? (b -> t) -> t ???
+ContT   r m a    (a -> m r) -> m r      t b. ??? (b -> t) -> t ???
 
-ParserT s m a :: [s] -> m ([s], a)      t b. ??? [t] -> ([t], b) ???
+ParserT s m a    [s] -> m ([s], a)      t b. ??? [t] -> ([t], b) ???

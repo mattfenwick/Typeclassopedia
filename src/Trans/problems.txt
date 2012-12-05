@@ -1,0 +1,42 @@
+how do I get 'Parser', 'commit', and 'ListT' to work together?
+I seem to need to define an "IsZero'" instance, but I can't
+figure out how to:
+
+    instance IsZero' (ListT m) where
+      -- ListT m a -> Bool
+      -- m [a] -> Bool
+      isZero m = ????
+
+can I replace "isZero" with something like:
+
+    branchZero :: m a -> m a -> m a
+
+oh hey, that looks like monad plus -- just that if
+the first arg is zero, return the second (which is
+an error), and if it's not zero, return the first:
+
+    branchZero x y
+      | isZero x   =  y
+      | otherwise  =  x
+
+Would something based on this work?
+
+    mplus (x *> pure False) (pure True)
+
+commit p
+ fmap q    -- <=== is the 'fmap' a problem?  does it allow the error to 'escape'?
+  mplus
+    fmap Just p
+    pure Nothing
+  -- and then
+ where
+   q Nothing = an error
+   q (Just x) = x
+
+no, bad.  but how about:
+
+commit p =
+    mplus (fmap Just p) (pure Nothing) >>= \x ->
+      case x of
+           (Just y) -> y;
+           Nothing  -> throwError;
