@@ -21,6 +21,8 @@ module Trans.MTrans (
   
   , ErrorT(..)
   , MonadError(..)
+  
+  , ListT(..)
 
 ) where
 
@@ -224,3 +226,33 @@ instance (Pointed' m, Applicative' m) => Applicative' (ErrorT e m) where
 
 instance (Monad' m) => Monad' (ErrorT e m) where
   join = join2
+
+
+
+newtype ListT m a
+    = ListT {getListT :: m [a]}
+
+instance Composer' ListT [] where
+  open = getListT
+  close = ListT
+
+instance Functor' m => Functor' (ListT m) where
+  fmap = fmap2
+
+instance Pointed' m => Pointed' (ListT m) where
+  pure = pure2
+
+instance (Pointed' m, Applicative' m) => Applicative' (ListT m) where
+  (<*>) = app2
+
+instance Monad' m => Monad' (ListT m) where
+  join = join2
+
+instance Applicative' m => APlus' (ListT m) where
+  -- ListT m a -> ListT m a -> ListT m a
+  -- m [a] -> m [a] -> m [a]
+  ListT l  <+>  ListT r  =  ListT (fmap (++) l <*> r)
+
+instance (Pointed' m, Applicative' m) => AZero' (ListT m) where
+  -- m [a]
+  zero = ListT (pure [])

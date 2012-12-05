@@ -56,6 +56,11 @@ instance MonadTrans' CntP where
     where
       h = StateT (\ints -> m >>= \x -> pure (ints, x))
 
+instance MonadTrans' ListT where
+  -- m a -> ListT m a
+  -- m a -> m [a]
+  lift m = ListT (m >>= \x -> pure [x])
+
 
 -- ---------------------------------------------------------------------
 
@@ -142,6 +147,10 @@ instance MonadError e m => MonadError e (StateT s m) where
 instance MonadError e m => MonadError e (Parser t m) where
   throwE      =  lift . throwE
   catchE m f  =  Parser $ catchE (getParser m) (getParser . f)
+
+instance MonadError e m => MonadError e (ListT m) where
+  throwE      =  lift . throwE
+  catchE m f  =  ListT $ catchE (getListT m) (getListT . f)
 
 
 -- ---------------------------------------------------------------------
