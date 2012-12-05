@@ -60,15 +60,13 @@ optional p = fmap pure p  <+>  pure zero
 optionalM :: (Pointed' f, APlus' f) => a -> f a -> f a
 optionalM x p = p <+> pure x
 
-sepBy1 :: (Pointed' f, Applicative' f, APlus' f) =>
-     f a -> f a1 -> f ([a], [a1])
+sepBy1 :: (Pointed' f, Applicative' f, APlus' f) => f a -> f a1 -> f ([a], [a1])
 sepBy1 p s = fmap g p <*> (liftA2 f s (sepBy1 p s) <+> pure ([], []))
   where 
     f a (b, c) = (b, a:c)
     g x (y, z) = (x:y, z)
     
-sepBy0 :: (Pointed' f, Applicative' f, APlus' f) =>
-     f a -> f a1 -> f ([a], [a1])
+sepBy0 :: (Pointed' f, Applicative' f, APlus' f) => f a -> f a1 -> f ([a], [a1])
 sepBy0 p s = sepBy1 p s <+> pure ([], [])
 
 end :: (Switch' f, MonadParser a f) => f ()
@@ -85,3 +83,13 @@ pnone xs = satisfy (\x -> not $ elem x xs)
 
 string :: (Eq a, MonadParser a f, AZero' f) => [a] -> f [a]
 string = commute . map literal
+
+-- success -> success
+-- failure -> error
+commit :: Parser a -> Parser a -- <== oops, not real !!
+commit p = ?Constructor? h -- <== how do I construct a parser if only have a type class?
+  where
+    h ts = let result = getParser p ts
+           in if isFail result -- <== how do I determine if it's fail/zero?
+              then throwE ts
+              else result
