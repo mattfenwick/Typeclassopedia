@@ -131,15 +131,27 @@ instance MonadError e m => MonadError e (MaybeT m) where
   -- (got it from http://hackage.haskell.org/packages/archive/transformers/latest/doc/html/src/Control-Monad-Trans-Maybe.html#liftCatch)
   catchE m f = MaybeT $ catchE (getMaybeT m) (getMaybeT . f)
 
+instance MonadError e m => MonadError e (StateT s m) where
+  throwE      =  lift . throwE
+  -- m a -> (e -> m a) -> m a
+  -- StateT s m a -> (e -> StateT s m a) -> StateT s m a
+  -- (s -> m (s, a)) -> (e -> s -> m (s, a)) -> s -> m (s, a)
+  -- http://hackage.haskell.org/packages/archive/transformers/latest/doc/html/src/Control-Monad-Trans-State-Lazy.html#liftCatch
+  catchE m f  =  StateT (\s -> catchE (getStateT m s) (\e -> getStateT (f e) s))
+
+instance MonadError e m => MonadError e (Parser t m) where
+  throwE      =  lift . throwE
+  catchE m f  =  Parser $ catchE (getParser m) (getParser . f)
+
 
 -- ---------------------------------------------------------------------
 
 instance (AZero' m, Monad' m) => MonadParser t (Parser t m) where
   -- StateT [t] m t
-  item = 
-    get >>= \xs -> case xs of 
-                   (y:ys)  ->  put ys >> pure y;
-                   []      ->  zero; 
+  item =
+      get >>= \xs -> case xs of
+                     (y:ys)  ->  put ys >> pure y;
+                     []      ->  zero;
 
 -- the state is (space indentation, line number)
 -- passing a '\n' resets the space to zero
