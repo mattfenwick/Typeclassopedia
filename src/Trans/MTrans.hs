@@ -258,12 +258,21 @@ class Monad' m => MonadError e m | m -> e where
   throwE :: e -> m a 
   catchE :: m a -> (e -> m a) -> m a
 
+
 instance Monad' m => MonadError e (ErrorT e m) where
   -- e -> ErrorT e m a
   -- e -> m (Either e a)
   throwE = ErrorT . pure . Left
   -- m a -> (e -> m a) -> m a
   -- ErrorT e m a -> (e -> ErrorT e m a) -> ErrorT e m a
-  -- TODO:  crap, can't use pattern-matching here
-  catchE (ErrorT (Right x))  _  =  ErrorT (Right x)
-  catchE (ErrorT (Left e))   f  =  f e
+  catchE (ErrorT m) f  =  
+      ErrorT (m >>= \x -> case x of
+                            Left e   ->  getErrorT (f e) -- <== um, seriously?
+                            Right z  ->  pure $ Right z)
+
+instance MonadError e (Either e) where
+  -- e -> Either e a
+  throwE = Left
+  -- Either e a -> (e -> Either e a) -> Either e a
+  catchE (Right x)  _  =  Right x
+  catchE (Left y)   f  =  f y
