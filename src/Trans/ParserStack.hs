@@ -29,12 +29,12 @@ run p tokens = getMaybeT (getStateT (getParser p) tokens)
 runL :: PL e t a -> [t] -> Either e [([t], a)]
 runL p tokens = getListT (getStateT (getParser p) tokens)
 
-
+{-
 str :: P String Char String
 str = literal '"' *> commit rest
   where
     rest = many (pnot '"') <* literal '"'
-
+-}
 
 com p =
     get >>= \s ->

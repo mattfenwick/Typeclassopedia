@@ -110,20 +110,16 @@ instance Monad' m => Monad' (MaybeT m) where
   -- m (Maybe (m (Maybe a))) -> m (Maybe a)
   join = join2
 
-instance APlus' m => APlus' (MaybeT m) where
+instance (Applicative' m) => APlus' (MaybeT m) where
   -- MaybeT m a -> MaybeT m a -> MaybeT m a
   -- m (Maybe a) -> m (Maybe a) -> m (Maybe a)
-  MaybeT l  <+>  MaybeT r   =  MaybeT (l <+> r)
+  MaybeT l  <+>  MaybeT r   =  MaybeT (fmap (<+>) l <*> r)
 
-instance AZero' m => AZero' (MaybeT m) where
+instance (Pointed' m, Applicative' m) => AZero' (MaybeT m) where
   -- MaybeT m a
   -- m (Maybe a)
-  zero = MaybeT zero
+  zero = MaybeT (pure Nothing)
 
-instance IsZero' m => IsZero' (MaybeT m) where
-  -- MaybeT m a -> Bool
-  -- m (Maybe a) -> Bool
-  isZero (MaybeT m)  =  isZero m
 
 
 
