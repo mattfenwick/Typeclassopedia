@@ -40,6 +40,9 @@ module Classes (
   , IsZero'
   , isZero
   
+  , AOr'
+  , (<||>)
+  
   , Switch'
   , switch
 
@@ -104,6 +107,16 @@ class APlus' f => AZero' f where
 
 class AZero' f => IsZero' f where
   isZero :: f a -> Bool
+
+
+-- see http://www.haskell.org/haskellwiki/MonadPlus_reform_proposal
+--   MonadOr    ==>>  AOr'
+--   MonadPlus  ==>>  APlus'
+--   MonadZero  ==>>  AZero'
+--   except that the class hierarchy should be arranged
+--   similar to Semigroup/Monoid, instead of the way given
+class APlus' f => AOr' f where
+  (<||>) :: f a -> f a -> f a
   
   
 class Switch' f where

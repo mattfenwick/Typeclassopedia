@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, UndecidableInstances #-}
+{-# LANGUAGE NoMonomorphismRestriction, MultiParamTypeClasses, FlexibleInstances, UndecidableInstances #-}
 module Trans.ParserStack (
 
 
@@ -29,22 +29,36 @@ run p tokens = getMaybeT (getStateT (getParser p) tokens)
 runL :: PL e t a -> [t] -> Either e [([t], a)]
 runL p tokens = getListT (getStateT (getParser p) tokens)
 
-{-
-str :: P String Char String
+
+run1 :: StateT [t] (MaybeT (Either e)) a -> [t] -> Either e (Maybe ([t], a))
+run1 p ts = getMaybeT (getStateT p ts)
+
+run2 :: StateT [t] (ListT (Either e)) a -> [t] -> Either e [([t], a)]
+run2 p ts = getListT (getStateT p ts)
+
+{- counter example that shows this is broken:
+-- this succeeds
+ghci> run2 ((many $ literal 'a') *> literal 'b') "aaabcd"
+Right [("cd", 'b')]
+
+-- but this fails -- i.e. adding a 'commit' changed the behavior on success
+--   does this indicate the monad stack is in the wrong order ??
+--   or that this 'commit' idea is more fundamentally broken?
+ghci> run2 ((many $ literal 'a') *> commit (literal 'b')) "aaabcd"
+Left "abcd"
+-}
+
+
+-- str :: P String Char String
 str = literal '"' *> commit rest
   where
     rest = many (pnot '"') <* literal '"'
--}
 
-com p =
-    get >>= \s ->
-    ((fmap Just (p s)) <+> (pure Nothing)) >>= \x ->
-      case x of
-           (Just y) -> y;
-           Nothing  -> undefined;
+commit :: (AOr' m, MonadError e m) => StateT e m a -> StateT e m a
+commit p =
+    StateT (\ts -> getStateT p ts <||> throwE ts)
 
-duh p =
-    fmap Just p <+> pure Nothing
+com2 p = p <||> lift (throwE)
 
 
 

@@ -114,6 +114,10 @@ instance IsZero' [] where
   isZero  []  =  True
   isZero  _   =  False
 
+instance AOr' [] where
+  []  <||>  r  =  r
+  l   <||>  _  =  l
+
 instance Switch' [] where
   switch []     = [()]
   switch (_:_)  = []
@@ -199,6 +203,10 @@ instance IsZero' Maybe where
   isZero  Nothing  =  True
   isZero     _     =  False
 
+instance AOr' Maybe where
+  Nothing  <||>   r   =  r
+  l        <||>   _   =  l
+
 instance Switch' Maybe where
   switch Nothing   = Just ()
   switch (Just _)  = Nothing
@@ -248,6 +256,9 @@ instance Monoid' a => AZero' (Either a) where
 instance Monoid' a => IsZero' (Either a) where
   isZero  (Left _)   =  True
   isZero  (Right _)  =  False
+
+instance AOr' (Either a) where
+  (<||>) = (<|>)
 
 instance Foldable' (Either a) where
   foldr _ base (Left _) = base

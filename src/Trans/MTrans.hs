@@ -120,6 +120,14 @@ instance (Pointed' m, Applicative' m) => AZero' (MaybeT m) where
   -- m (Maybe a)
   zero = MaybeT (pure Nothing)
 
+instance Monad' m => AOr' (MaybeT m) where
+  -- m (Maybe a) -> m (Maybe a) -> m (Maybe a)
+  MaybeT l  <||>  MaybeT r  =  MaybeT q
+    where
+      q = l >>= \x -> case x of
+                           Nothing  ->  r
+                           Just y   ->  pure x
+
 
 
 
@@ -200,6 +208,9 @@ instance AZero' m => AZero' (StateT s m) where
   -- s -> m (s, a)
   zero = StateT (const zero)
 
+instance AOr' m => AOr' (StateT s m) where
+  StateT l  <||>  StateT r  =  StateT (\s -> l s <||> r s)
+
 
 
 newtype ErrorT e m a
@@ -222,6 +233,26 @@ instance (Pointed' m, Applicative' m) => Applicative' (ErrorT e m) where
 
 instance (Monad' m) => Monad' (ErrorT e m) where
   join = join2
+
+instance Applicative' m => APlus' (ErrorT e m) where
+  -- m (Either e a) -> m (Either e a) -> m (Either e a)
+  ErrorT l  <+>  ErrorT r  =  ErrorT (fmap (<+>) l <*> r)
+
+instance (Monoid' e, Applicative' m, Pointed' m) => AZero' (ErrorT e m) where
+  -- m (Either e a)
+  zero = ErrorT (pure zero)
+
+-- left bias success, if they're both successful
+-- left bias failure, if they both fail
+instance Monad' m => AOr' (ErrorT e m) where
+  ErrorT l  <||>  ErrorT r  =  ErrorT x
+    where 
+      x = l >>= \y -> case y of
+                           Left _ -> r >>= \z -> case z of
+                                                       Left _  ->  pure y;
+                                                       Right _ ->  pure z;
+                           Right _ -> pure y;
+  
 
 
 
@@ -252,3 +283,10 @@ instance Applicative' m => APlus' (ListT m) where
 instance (Pointed' m, Applicative' m) => AZero' (ListT m) where
   -- m [a]
   zero = ListT (pure [])
+
+instance Monad' m => AOr' (ListT m) where
+  ListT l  <||>  ListT r  =  ListT x
+    where
+      x = l >>= \y -> case y of
+                           []  ->  r
+                           _   ->  pure y

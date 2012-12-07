@@ -156,20 +156,7 @@ instance MonadError e m => MonadError e (ListT m) where
 -- ---------------------------------------------------------------------
 
 instance (AZero' m, Monad' m) => MonadParser t (Parser t m) where
-  -- StateT [t] m t
-  item =
-      get >>= \xs -> case xs of
-                     (y:ys)  ->  put ys >> pure y;
-                     []      ->  zero;
-
-instance (IsZero' m, MonadError [t] m) => CommitParser t (Parser t m) where
-  -- Parser t m a -> Parser t m a
-  -- StateT [t] m a -> StateT [t] m a
-  -- ([t] -> m ([t], a)) -> [t] -> m ([t], a)
-  commit p = Parser (StateT (\ts -> let r = (getStateT (getParser p) ts)
-                                    in if (isZero r) 
-                                       then throwE ts
-                                       else r))
+  item = Parser item
 
 -- the state is (space indentation, line number)
 -- passing a '\n' resets the space to zero
@@ -181,3 +168,9 @@ instance (MonadParser Char m) => MonadParser Char (CntP m) where
                                 ' '  -> put (ss + 1, ns) >> pure x;
                                 '\n' -> put (0, ns + 1)  >> pure x;
                                 y    -> pure y;
+
+instance (Monad' m, AZero' m) => MonadParser t (StateT [t] m) where
+  item = 
+      get >>= \xs -> case xs of
+                          (y:ys)  ->  put ys >> pure y;
+                          []      ->  zero;
