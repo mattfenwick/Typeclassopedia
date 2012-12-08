@@ -37,9 +37,6 @@ module Classes (
   , zero
   , guardA
   
-  , IsZero'
-  , isZero
-  
   , AOr'
   , (<||>)
   
@@ -103,10 +100,6 @@ class APlus' f where
 
 class APlus' f => AZero' f where
   zero :: f a
-
-
-class AZero' f => IsZero' f where
-  isZero :: f a -> Bool
 
 
 -- see http://www.haskell.org/haskellwiki/MonadPlus_reform_proposal

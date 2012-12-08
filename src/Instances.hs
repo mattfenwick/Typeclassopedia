@@ -110,10 +110,6 @@ instance APlus' [] where
 instance AZero' [] where
   zero    =  []
 
-instance IsZero' [] where
-  isZero  []  =  True
-  isZero  _   =  False
-
 instance AOr' [] where
   []  <||>  r  =  r
   l   <||>  _  =  l
@@ -199,10 +195,6 @@ instance APlus' Maybe where
 instance AZero' Maybe where
   zero = Nothing
 
-instance IsZero' Maybe where
-  isZero  Nothing  =  True
-  isZero     _     =  False
-
 instance AOr' Maybe where
   Nothing  <||>   r   =  r
   l        <||>   _   =  l
@@ -252,10 +244,6 @@ instance APlus' (Either a) where
 
 instance Monoid' a => AZero' (Either a) where
   zero = Left empty
-
-instance Monoid' a => IsZero' (Either a) where
-  isZero  (Left _)   =  True
-  isZero  (Right _)  =  False
 
 instance AOr' (Either a) where
   (<||>) = (<|>)
