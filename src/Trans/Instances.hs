@@ -40,14 +40,6 @@ instance MonadTrans' (ErrorT e) where
   -- m a -> m (Either e a)
   lift m = ErrorT (m >>= (pure . Right))
 
-instance MonadTrans' (Parser t) where
-  -- m a -> Parser t m a
-  -- m a -> StateT [t] m a
-  -- m a -> [t] -> m ([t], a)
-  lift m = Parser h
-    where
-      h = StateT (\ts -> m >>= \x -> pure (ts, x))
-
 instance MonadTrans' CntP where
   -- m a -> CntP m a
   -- m a -> StateT (Int, Int) m a
@@ -99,10 +91,6 @@ instance (MonadTrans' t, MonadState s m, Monad' (t m)) => MonadState s (t m) whe
   put  =  lift . put
 -}
 
-instance Monad' m => MonadState [t] (Parser t m) where
-  get    =  Parser get
-  put x  =  Parser (put x)
-
 instance Monad' m => MonadState (Int, Int) (CntP m) where
   get  =  CntP  get
   put  =  CntP  .  put
@@ -144,19 +132,12 @@ instance MonadError e m => MonadError e (StateT s m) where
   -- http://hackage.haskell.org/packages/archive/transformers/latest/doc/html/src/Control-Monad-Trans-State-Lazy.html#liftCatch
   catchE m f  =  StateT (\s -> catchE (getStateT m s) (\e -> getStateT (f e) s))
 
-instance MonadError e m => MonadError e (Parser t m) where
-  throwE      =  lift . throwE
-  catchE m f  =  Parser $ catchE (getParser m) (getParser . f)
-
 instance MonadError e m => MonadError e (ListT m) where
   throwE      =  lift . throwE
   catchE m f  =  ListT $ catchE (getListT m) (getListT . f)
 
 
 -- ---------------------------------------------------------------------
-
-instance (AZero' m, Monad' m) => MonadParser t (Parser t m) where
-  item = Parser item
 
 -- the state is (space indentation, line number)
 -- passing a '\n' resets the space to zero

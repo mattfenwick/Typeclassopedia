@@ -2,8 +2,6 @@
 module Trans.Parse (
 
     MonadParser(..)
-
-  , Parser(..)
   
   , CntP(..)
 
@@ -22,33 +20,6 @@ class (Monad' m) => MonadParser t m | m -> t where
 
 
 
--- base parser
-
-newtype Parser t m a
-    = Parser {getParser :: StateT [t] m a}
-
-instance Functor' m => Functor' (Parser t m) where
-  -- (a -> b) -> Parser t m a -> Parser t m b
-  fmap f = Parser . fmap f . getParser
-
-instance Pointed' m => Pointed' (Parser t m) where
-  pure = Parser . pure
-
-instance Monad' m => Applicative' (Parser t m) where
-  Parser f <*> Parser x = Parser (f <*> x)
-
-instance APlus' m => APlus' (Parser t m) where
-  Parser x  <+>  Parser y  =  Parser (x <+> y)
-
-instance AZero' m => AZero' (Parser t m) where
-  zero = Parser zero
-
-instance Monad' m => Monad' (Parser t m) where
-  -- Parser t m (Parser t m a) -> Parser t m a
-  join = Parser . join . fmap getParser . getParser
-
-
--- ----------------------------------------------------------------------
 -- transformer that counts newlines and spaces
 
 newtype CntP m a 

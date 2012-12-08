@@ -14,22 +14,6 @@ import Trans.Parse
 import Trans.Instances
 
 
--- type:  [s] -> Either f (Maybe ([s], a))
--- wow, this is weird ,,, somehow it pumps out
--- 'Left ""' on failure ... what's going on?
-type P e t a = Parser t (MaybeT (Either e)) a
-
-type PL e t a = Parser t (ListT (Either e)) a
-
-
-run :: P e t a -> [t] -> Either e (Maybe ([t], a))
-run p tokens = getMaybeT (getStateT (getParser p) tokens)
-
-
-runL :: PL e t a -> [t] -> Either e [([t], a)]
-runL p tokens = getListT (getStateT (getParser p) tokens)
-
-
 run1 :: StateT [t] (MaybeT (Either e)) a -> [t] -> Either e (Maybe ([t], a))
 run1 p ts = getMaybeT (getStateT p ts)
 
@@ -59,6 +43,11 @@ commit p =
     StateT (\ts -> getStateT p ts <||> throwE ts)
 
 com2 p = p <||> lift (throwE)
+
+com3 p = get >>= \ts -> (getStateT p ts >>= \(us, v) -> put us >> pure v)
+                        <||> throwE ts
+
+com4 p = p <||> StateT throwE
 
 
 
