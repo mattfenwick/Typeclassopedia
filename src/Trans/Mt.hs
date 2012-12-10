@@ -1,6 +1,6 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
 
-module Parse.Mt (
+module Trans.Mt (
 
     join2
   , bind2
