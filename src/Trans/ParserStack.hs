@@ -1,7 +1,6 @@
 {-# LANGUAGE NoMonomorphismRestriction, MultiParamTypeClasses, FlexibleInstances, UndecidableInstances #-}
 module Trans.ParserStack (
 
-
 ) where
 
 import Classes
@@ -10,7 +9,6 @@ import Instances
 import Prelude hiding (foldr, foldl, fmap, (>>=), fail, (>>))
 import Trans.MTrans
 import Trans.Combs
-import Trans.Parse
 import Trans.Instances
 
 
@@ -48,20 +46,3 @@ com3 p = get >>= \ts -> (getStateT p ts >>= \(us, v) -> put us >> pure v)
                         <||> throwE ts
 
 com4 p = p <||> StateT throwE
-
-
-
-{- from Trans.Parse
-runParser = getStateT . getParser
-
-runCntP :: CntP (Parser t m) a -> (Int, Int) -> [t] -> m ([t], ((Int, Int), a))
-runCntP p s ts = getStateT (getParser (getStateT (getCntP p) s)) ts
-
--- umm ????
-parseCntP :: CntP (Parser Char Maybe) Char
-parseCntP = item
-
--- example:
---   ghci> runCntP (many parseCntP) (0, 0) "ab cd \n ef \n   "
---   Just ("",((3,2),"ab cd \n ef \n   "))
--}

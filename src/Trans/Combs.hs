@@ -1,6 +1,8 @@
+{-# LANGUAGE NoMonomorphismRestriction, FlexibleContexts #-}
 module Trans.Combs (
 
-    check
+    item
+  , check
   , satisfy
   , literal
   
@@ -26,9 +28,12 @@ import Classes
 import Datums
 import Instances
 import Prelude hiding (foldr, foldl, fmap, (>>=), fail, (>>))
-import Trans.Parse
 import Trans.MTrans
 
+
+item = 
+    get >>= \s -> case s of []     -> zero; 
+                            (x:xs) -> put xs >> pure x
 
 check :: (AZero' m, Monad' m) => (a -> Bool) -> m a -> m a
 check f p =
@@ -36,10 +41,10 @@ check f p =
     guardA (f x)  >>
     pure x
 
-satisfy :: (MonadParser a m, AZero' m) => (a -> Bool) -> m a
+satisfy :: (MonadState [a] m, AZero' m) => (a -> Bool) -> m a
 satisfy p = check p item
 
-literal :: (Eq a, MonadParser a m, AZero' m) => a -> m a
+literal :: (Eq a, MonadState [a] m, AZero' m) => a -> m a
 literal tok = satisfy (== tok)
 
 (*>) :: Applicative' f => f a -> f b -> f b
@@ -70,17 +75,17 @@ sepBy1 p s = fmap g p <*> (liftA2 f s (sepBy1 p s) <+> pure ([], []))
 sepBy0 :: (Pointed' f, Applicative' f, APlus' f) => f a -> f a1 -> f ([a], [a1])
 sepBy0 p s = sepBy1 p s <+> pure ([], [])
 
-end :: (Switch' f, MonadParser a f) => f ()
+end :: (Switch' f, AZero' f, MonadState [a] f) => f ()
 end = switch item
 
-not1 :: (Switch' f, MonadParser b f) => f a -> f b
+not1 :: (Switch' f, AZero' f, MonadState [b] f) => f a -> f b
 not1 p = switch p *> item
 
-pnot :: (Eq a, MonadParser a m, AZero' m) => a -> m a
+pnot :: (Eq a, MonadState [a] m, AZero' m) => a -> m a
 pnot x = satisfy (/= x)
 
-pnone :: (Eq a, MonadParser a m, AZero' m) => [a] -> m a
+pnone :: (Eq a, MonadState [a] m, AZero' m) => [a] -> m a
 pnone xs = satisfy (\x -> not $ elem x xs)
 
-string :: (Eq a, MonadParser a f, AZero' f) => [a] -> f [a]
+string :: (Eq a, MonadState [a] f, AZero' f) => [a] -> f [a]
 string = commute . map literal

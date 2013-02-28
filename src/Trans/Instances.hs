@@ -9,7 +9,6 @@ import Datums
 import Instances
 import Prelude hiding (foldr, foldl, fmap, (>>=), fail, (>>))
 import Trans.MTrans
-import Trans.Parse
 
 
 
@@ -39,14 +38,6 @@ instance MonadTrans' (ErrorT e) where
   -- m a -> ErrorT e m a
   -- m a -> m (Either e a)
   lift m = ErrorT (m >>= (pure . Right))
-
-instance MonadTrans' CntP where
-  -- m a -> CntP m a
-  -- m a -> StateT (Int, Int) m a
-  -- m a -> (Int, Int) -> m ((Int, Int), a)
-  lift m = CntP h
-    where
-      h = StateT (\ints -> m >>= \x -> pure (ints, x))
 
 instance MonadTrans' ListT where
   -- m a -> ListT m a
@@ -91,10 +82,6 @@ instance (MonadTrans' t, MonadState s m, Monad' (t m)) => MonadState s (t m) whe
   put  =  lift . put
 -}
 
-instance Monad' m => MonadState (Int, Int) (CntP m) where
-  get  =  CntP  get
-  put  =  CntP  .  put
-
 
 -- ---------------------------------------------------------------------
 
@@ -135,23 +122,3 @@ instance MonadError e m => MonadError e (StateT s m) where
 instance MonadError e m => MonadError e (ListT m) where
   throwE      =  lift . throwE
   catchE m f  =  ListT $ catchE (getListT m) (getListT . f)
-
-
--- ---------------------------------------------------------------------
-
--- the state is (space indentation, line number)
--- passing a '\n' resets the space to zero
--- this ignores tabs -- just lazy
-instance (MonadParser Char m) => MonadParser Char (CntP m) where
-  item =
-      get        >>= \(ss, ns) ->
-      lift item  >>= \x -> case x of
-                                ' '  -> put (ss + 1, ns) >> pure x;
-                                '\n' -> put (0, ns + 1)  >> pure x;
-                                y    -> pure y;
-
-instance (Monad' m, AZero' m) => MonadParser t (StateT [t] m) where
-  item = 
-      get >>= \xs -> case xs of
-                          (y:ys)  ->  put ys >> pure y;
-                          []      ->  zero;
