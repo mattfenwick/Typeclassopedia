@@ -8,11 +8,6 @@ import Prelude hiding ((>>=), (>>), fail, foldr, foldl, fmap)
 
 
     
-
-item = 
-    get >>= \s -> case s of []     -> zero; 
-                            (x:xs) -> put xs >> pure x
-
                             
 k :: StateT [Char] Maybe Char
 k = item
@@ -26,3 +21,12 @@ l = item
 eg str num = getStateT (getStateT l str) num
 
 eg1 p s n = getStateT (getStateT p s) n
+
+-- example:  getStateT (getStateT (state2 (\x -> x ++ x) >> state2 tail) 14) "abcdefg"
+state2 f =
+    get               >>= \r ->
+    lift get          >>= \s ->
+    put (r + 1)       >>
+    lift (put $ f s)  >>
+    pure (r, s)
+    

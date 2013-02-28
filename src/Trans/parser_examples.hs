@@ -1,7 +1,4 @@
 {-# LANGUAGE NoMonomorphismRestriction, MultiParamTypeClasses, FlexibleInstances, UndecidableInstances #-}
-module Trans.ParserStack (
-
-) where
 
 import Classes
 import Datums

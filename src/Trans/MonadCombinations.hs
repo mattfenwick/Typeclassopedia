@@ -1,6 +1,6 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
 
-module Trans.Mt (
+module Trans.MonadCombinations (
 
     join2
   , bind2
