@@ -1,9 +1,13 @@
-{-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies, 
-             FlexibleInstances, UndecidableInstances,
+{-# LANGUAGE FunctionalDependencies,
+             FlexibleInstances,
+             UndecidableInstances,
              NoMonomorphismRestriction #-}
 
 
 -- data definitions
+
+newtype Id a =
+    Id {getId :: a}
 
 newtype MaybeT m a =
     MaybeT {getMaybeT :: m (Maybe a)}
@@ -13,29 +17,6 @@ newtype StateT s m a =
 
 newtype ErrorT e m a =
     ErrorT {getErrorT :: m (Either e a)}
-
-newtype Id a =
-    Id {getId :: a}
-
-
--- transformer type classes
-
-class Monad m => TMaybe m where
-  zero :: m a
-
-class Monad m => TState s m | m -> s where
-  get :: m s
-  put :: s -> m ()
-
-class Monad m => TError e m | m -> e where
-  throwE :: e -> m a
-  catchE :: m a -> (e -> m a) -> m a
-  
-  
--- monad transformer type class
-
-class Trans t m where
-  lift :: Monad m => m a -> t m a
 
 
 -- monad instances
@@ -73,6 +54,12 @@ instance Monad m => Monad (ErrorT e m) where
       g (Right z)  =  getErrorT (f z)
 
 
+-- monad transformer type class
+
+class Trans t m where
+  lift :: Monad m => m a -> t m a
+
+
 -- monad transformer instances
 
 instance Trans MaybeT m where
@@ -88,6 +75,20 @@ instance Trans (ErrorT e) m where
   lift m = ErrorT (m >>= return . Right)
 
 
+-- transformer type classes
+
+class Monad m => TMaybe m where
+  zero :: m a
+
+class Monad m => TState s m | m -> s where
+  get :: m s
+  put :: s -> m ()
+
+class Monad m => TError e m | m -> e where
+  throwE :: e -> m a
+  catchE :: m a -> (e -> m a) -> m a
+  
+  
 -- TMaybe instances
 
 instance Monad m => TMaybe (MaybeT m) where
@@ -201,3 +202,62 @@ close =
     getState     >>= \s ->
         case s of ('{':ts) -> putState ts;
                   _       -> throwE "unmatched }"
+
+class Plus m where
+  (<+>) :: m a -> m a -> m a
+ 
+instance Plus Maybe where
+  Nothing  <+>   a   =   a
+  b        <+>   _   =   b
+ 
+instance Monad m => Plus (MaybeT m) where
+  -- m (Maybe a) -> m (Maybe a) -> m (Maybe a)
+  MaybeT l  <+>  MaybeT r  =  MaybeT x
+    where
+      x = l >>= \y -> case y of Nothing -> r;
+                                Just _  -> return y;
+
+instance Plus m => Plus (StateT s m) where
+  -- (s -> m (s, a)) -> (s -> m (s, a)) -> (s -> m (s, a))
+  StateT f  <+>  StateT g  =  StateT (\s -> f s <+> g s)
+
+instance Plus m => Plus (ErrorT e m) where
+  -- m (Either e a) -> m (Either e a) -> m (Either e a)
+  ErrorT l  <+>  ErrorT r  =  ErrorT (l <+> r)
+
+instance Plus Id where
+  x <+> _ = x
+
+class Switch f where
+  switch :: f a -> f ()
+
+instance Switch Maybe where
+  switch (Just _) = Nothing
+  switch Nothing  = Just ()
+
+instance Monad m => Switch (MaybeT m) where
+  -- MaybeT m a -> MaybeT m ()
+  -- m (Maybe a) -> m (Maybe ())
+  switch (MaybeT m) = MaybeT q 
+    where
+      q = m >>= \x -> case x of Nothing -> return (Just ());
+                                Just _  -> return Nothing;
+                                
+instance Switch (StateT s m) where
+  -- StateT s m a -> StateT s m ()
+  -- (s -> m (s, a)) -> s -> m (s, ())
+  switch (StateT f) = StateT (return . g)
+    where
+      g s = switch (f s)
+
+many1 p = 
+    p                       >>= \x ->
+    (many1 p <+> return []) >>= \xs ->
+    return (x:xs)
+
+many0 p = many1 p <+> return []
+
+is :: Parser t s e [t]
+is = many0 item
+
+-- char = not1 (open <+> close)
