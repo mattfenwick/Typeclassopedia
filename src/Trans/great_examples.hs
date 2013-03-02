@@ -185,24 +185,6 @@ runParser :: Parser t s e a
       -> Either e (Maybe (s, ([t], a)))
 runParser p toks = getId . getErrorT . getMaybeT . getStateT (getStateT p toks)
 
-check p = 
-    item >>= \x ->
-    if p x then return x
-           else zero
-
-literal = check . (==)
-
-open = 
-    literal '{'  >>
-    getState     >>= 
-    putState . ((:) '{')
-
-close = 
-    literal '}'  >>
-    getState     >>= \s ->
-        case s of ('{':ts) -> putState ts;
-                  _       -> throwE "unmatched }"
-
 class Plus m where
   (<+>) :: m a -> m a -> m a
  
@@ -243,12 +225,39 @@ instance Monad m => Switch (MaybeT m) where
       q = m >>= \x -> case x of Nothing -> return (Just ());
                                 Just _  -> return Nothing;
                                 
-instance Switch (StateT s m) where
+instance (Monad m, Switch m) => Switch (StateT s m) where
   -- StateT s m a -> StateT s m ()
   -- (s -> m (s, a)) -> s -> m (s, ())
-  switch (StateT f) = StateT (return . g)
+  switch (StateT f) = StateT g
     where
-      g s = switch (f s)
+      g s = switch (f s)    >> 
+            return (s, ())
+
+check p = 
+    item >>= \x ->
+    if p x then return x
+           else zero
+
+literal = check . (==)
+
+type Tok = (Char, Int, Int)
+
+charLit :: Char -> Parser Tok s e Tok
+charLit c = check (\(c', _, _) -> c == c')
+
+open :: Parser Tok [Tok] e Tok
+open = 
+    charLit '{'        >>= \o -> 
+    getState           >>= 
+    putState . ((:) o) >>
+    return o
+
+close :: Parser Tok [Tok] (String, Tok) Tok
+close = 
+    charLit '}'  >>= \c ->
+    getState     >>= \s ->
+        case s of (('{',_,_):ts) -> putState ts >> return c;
+                   _             -> throwE ("unmatched }", c)
 
 many1 p = 
     p                       >>= \x ->
@@ -260,4 +269,27 @@ many0 p = many1 p <+> return []
 is :: Parser t s e [t]
 is = many0 item
 
--- char = not1 (open <+> close)
+not1 p = switch p >> item
+commit p e = p <+> throwE e
+
+data Thing = C Char | Block [Thing] deriving (Show)
+
+mmap :: Monad m => (a -> b) -> m a -> m b -- oh look, it's fmap
+mmap f m = m >>= (return . f)
+
+char = mmap (\(c, _, _) -> C c) $ not1 (open <+> close)
+block = 
+    open >>= \o -> 
+    commit (
+      many0 form  >>= \xs -> 
+      close       >> 
+      return (Block xs)) ("unmatched {", o)
+form = char <+> block
+
+addLineCol :: String -> [(Char, Int, Int)]
+addLineCol = reverse . snd . foldl f ((1, 1), [])
+  where
+    f ((line, col), ts) '\n' = ((line + 1, 1), ('\n', line, col):ts)
+    f ((line, col), ts)  c   = ((line, col + 1), (c, line, col):ts)
+
+fullExample str = runParser (many0 form) (addLineCol str) []
