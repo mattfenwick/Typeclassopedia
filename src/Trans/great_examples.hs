@@ -162,29 +162,6 @@ runAE :: StateT [t] (MaybeT (ErrorT e Id)) a -> [t] -> Either e (Maybe ([t], a))
 runAE p toks = getId . getErrorT . getMaybeT . getStateT p $ toks
 
 
-type Parser t s e a = StateT [t] (StateT s (MaybeT (ErrorT e Id))) a
-
-addState :: Parser t s e t
-addState = item
-
-getTokens :: Parser t s e [t]
-getTokens = get
-
-putTokens :: [t] -> Parser t s e ()
-putTokens = put
-
-getState :: Parser t s e s
-getState = lift get
-
-putState :: s -> Parser t s e ()
-putState = lift . put
-
-runParser :: Parser t s e a 
-      -> [t]
-      -> s
-      -> Either e (Maybe (s, ([t], a)))
-runParser p toks = getId . getErrorT . getMaybeT . getStateT (getStateT p toks)
-
 class Plus m where
   (<+>) :: m a -> m a -> m a
  
@@ -209,6 +186,9 @@ instance Plus m => Plus (ErrorT e m) where
 
 instance Plus Id where
   x <+> _ = x
+
+pany :: (Plus f, TMaybe f) => [f a] -> f a
+pany = foldl (<+>) zero
 
 class Switch f where
   switch :: f a -> f ()
@@ -240,25 +220,6 @@ check p =
 
 literal = check . (==)
 
-type Tok = (Char, Int, Int)
-
-charLit :: Char -> Parser Tok s e Tok
-charLit c = check (\(c', _, _) -> c == c')
-
-open :: Parser Tok [Tok] e Tok
-open = 
-    charLit '{'        >>= \o -> 
-    getState           >>= 
-    putState . ((:) o) >>
-    return o
-
-close :: Parser Tok [Tok] (String, Tok) Tok
-close = 
-    charLit '}'  >>= \c ->
-    getState     >>= \s ->
-        case s of (('{',_,_):ts) -> putState ts >> return c;
-                   _             -> throwE ("unmatched }", c)
-
 many1 p = 
     p                       >>= \x ->
     (many1 p <+> return []) >>= \xs ->
@@ -266,24 +227,75 @@ many1 p =
 
 many0 p = many1 p <+> return []
 
-is :: Parser t s e [t]
-is = many0 item
-
 not1 p = switch p >> item
-commit p e = p <+> throwE e
 
-data Thing = C Char | Block [Thing] deriving (Show)
+commit p e = p <+> throwE e
 
 mmap :: Monad m => (a -> b) -> m a -> m b -- oh look, it's fmap
 mmap f m = m >>= (return . f)
 
-char = mmap (\(c, _, _) -> C c) $ not1 (open <+> close)
+a << b = a >>= \x -> b >> return x
+
+
+data Thing = C Char | Block [Thing] deriving (Show)
+
+type Parser t s e a = StateT [t] (StateT s (MaybeT (ErrorT e Id))) a
+
+addState :: Parser t s e t
+addState = item
+
+getTokens :: Parser t s e [t]
+getTokens = get
+
+putTokens :: [t] -> Parser t s e ()
+putTokens = put
+
+getState :: Parser t s e s
+getState = lift get
+
+putState :: s -> Parser t s e ()
+putState = lift . put
+
+runParser :: Parser t s e a 
+      -> [t]
+      -> s
+      -> Either e (Maybe (s, ([t], a)))
+runParser p toks = getId . getErrorT . getMaybeT . getStateT (getStateT p toks)
+
+type Tok = (Char, Int, Int)
+
+charLit :: Char -> Parser Tok s e Tok
+charLit c = check (\(c', _, _) -> c == c')
+
+open :: Parser Tok [Tok] e Tok
+open = 
+    pany (map charLit "{([")  >>= \o -> 
+    getState                  >>= 
+    putState . ((:) o)        >>
+    return o
+
+matches ('(',_,_) (')',_,_) = True
+matches ('{',_,_) ('}',_,_) = True
+matches ('[',_,_) (']',_,_) = True
+matches _ _ = False
+
+close :: Parser Tok [Tok] (String, [Tok]) Tok
+close = 
+    pany (map charLit "})]")  >>= \c ->
+    getState                  >>= \s ->
+    case (c, s) of (_, [])   -> throwE ("unmatched close brace", [c])
+                   (_, t:ts) -> if matches t c then putState ts >> return c;
+                                               else throwE ("mismatched braces", [t,c])
+
+tok :: (a, b, c) -> a
+tok (c, _, _) = c
+
+char = mmap (C . tok) $ not1 (open <+> close)
+
 block = 
     open >>= \o -> 
-    commit (
-      many0 form  >>= \xs -> 
-      close       >> 
-      return (Block xs)) ("unmatched {", o)
+    commit (mmap Block (many0 form << close)) ("unmatched open brace", [o])
+
 form = char <+> block
 
 addLineCol :: String -> [(Char, Int, Int)]
@@ -292,4 +304,10 @@ addLineCol = reverse . snd . foldl f ((1, 1), [])
     f ((line, col), ts) '\n' = ((line + 1, 1), ('\n', line, col):ts)
     f ((line, col), ts)  c   = ((line, col + 1), (c, line, col):ts)
 
-fullExample str = runParser (many0 form) (addLineCol str) []
+fullEg str = runParser (many0 form) (addLineCol str) []
+
+egs = map fullEg ["ab{cd{ef}z q\nr{s\n312{4}}\n}ab",
+                  "ab{123{{1342342} 325342}zzz",
+                  "def{45{56}23}zr\nsss}84",
+                  "ab(\ncd}fg",
+                  "1(2[3)4)5"]
