@@ -272,6 +272,9 @@ instance Pointed' m => Pointed' (ListT m) where
 instance (Pointed' m, Applicative' m) => Applicative' (ListT m) where
   (<*>) = app2
 
+-- PROBLEM:  this fails the monad associativity law if the 
+--   wrapped monad is not commutative
+-- SOLUTION:  if order doesn't matter, then the law is not broken
 instance Monad' m => Monad' (ListT m) where
   join = join2
 
