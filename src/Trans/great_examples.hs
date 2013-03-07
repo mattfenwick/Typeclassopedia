@@ -237,12 +237,7 @@ mmap f m = m >>= (return . f)
 a << b = a >>= \x -> b >> return x
 
 
-data Thing 
-    = C Char 
-    | PBlock [Thing] 
-    | CBlock [Thing]
-    | SBlock [Thing]
-  deriving (Show)
+data Thing = C Char | Block [Thing] deriving (Show)
 
 type Parser t s e a = StateT [t] (StateT s (MaybeT (ErrorT e Id))) a
 
@@ -261,8 +256,6 @@ getState = lift get
 putState :: s -> Parser t s e ()
 putState = lift . put
 
-updateState f = getState >>= (putState . f)
-
 runParser :: Parser t s e a 
       -> [t]
       -> s
@@ -274,49 +267,36 @@ type Tok = (Char, Int, Int)
 charLit :: Char -> Parser Tok s e Tok
 charLit c = check (\(c', _, _) -> c == c')
 
-open :: Char -> Parser Tok [Tok] e Tok
-open c = 
-    charLit c            >>= \o -> 
-    updateState ((:) o)  >>
+open :: Parser Tok [Tok] e Tok
+open = 
+    pany (map charLit "{([")  >>= \o -> 
+    getState                  >>= 
+    putState . ((:) o)        >>
     return o
 
-matches '(' ')' = True
-matches '{' '}' = True
-matches '[' ']' = True
+matches ('(',_,_) (')',_,_) = True
+matches ('{',_,_) ('}',_,_) = True
+matches ('[',_,_) (']',_,_) = True
 matches _ _ = False
 
-close :: Tok -> Parser Tok [Tok] (String, [Tok]) ()
-close c =
-    getState  >>= \s ->
+close :: Parser Tok [Tok] (String, [Tok]) Tok
+close = 
+    pany (map charLit "})]")  >>= \c ->
+    getState                  >>= \s ->
     case (c, s) of (_, [])   -> throwE ("unmatched close brace", [c])
-                   (_, t:ts) -> if matches (tok t) (tok c) then putState ts
-                                                     else throwE ("mismatched braces", [t, c])
-
-closeP :: Parser Tok [Tok] (String, [Tok]) Tok
-closeP = charLit ')' >>= \s -> close s >> return s
-
-closeC = charLit '}' >>= \s -> close s >> return s
-
-closeS = charLit ']' >>= \s -> close s >> return s
+                   (_, t:ts) -> if matches t c then putState ts >> return c;
+                                               else throwE ("mismatched braces", [t,c])
 
 tok :: (a, b, c) -> a
 tok (c, _, _) = c
 
-char = mmap (C . tok) $ not1 (pany [open '(', open '{', open '[', closeP, closeC, closeS])
+char = mmap (C . tok) $ not1 (open <+> close)
 
-pBlock = 
-    open '(' >>= \o ->
-    commit (mmap PBlock (many0 form << closeP)) ("unmatched (", [o])
+block = 
+    open >>= \o -> 
+    commit (mmap Block (many0 form << close)) ("unmatched open brace", [o])
 
-cBlock =
-    open '{' >>= \o ->
-    commit (mmap CBlock (many0 form << closeC)) ("unmatched {", [o])
-    
-sBlock = 
-    open '[' >>= \o ->
-    commit (mmap SBlock (many0 form << closeS)) ("unmatched [", [o])
-
-form = char <+> pBlock <+> cBlock <+> sBlock
+form = char <+> block
 
 addLineCol :: String -> [(Char, Int, Int)]
 addLineCol = reverse . snd . foldl f ((1, 1), [])
