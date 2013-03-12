@@ -94,6 +94,7 @@ class Semigroup' a => Monoid' a where
   empty :: a
 
 
+-- Left distribution or left catch
 class APlus' f where
   (<+>) :: f a -> f a -> f a
 
@@ -108,6 +109,7 @@ class APlus' f => AZero' f where
 --   MonadZero  ==>>  AZero'
 --   except that the class hierarchy should be arranged
 --   similar to Semigroup/Monoid, instead of the way given
+-- Left catch
 class APlus' f => AOr' f where
   (<||>) :: f a -> f a -> f a
   
