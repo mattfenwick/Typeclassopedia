@@ -21,6 +21,8 @@ module Datums (
   , root
   , branches
   , showTree
+  
+  , Compose (..)
 
 ) where
 
@@ -103,3 +105,9 @@ showMyTree t = help 0 t
     help :: Show b => Int -> MyTree b -> String
     help n Empty = replicate n ' ' ++ "*"
     help n (Branch x l r) = concat $ intersperse "\n" $ filter ((> 0) . length) ((replicate n ' ' ++ show x) : map (help (n + 1)) [l, r])
+
+
+
+newtype Compose f g a 
+    = Compose {getCompose :: f (g a)}
+  deriving (Show)

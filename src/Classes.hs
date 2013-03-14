@@ -40,6 +40,9 @@ module Classes (
   , AOr'
   , (<||>)
   
+  , And'
+  , (<&&>)
+  
   , Switch'
   , switch
 
@@ -94,24 +97,26 @@ class Semigroup' a => Monoid' a where
   empty :: a
 
 
--- Left distribution or left catch
+-- (a <+> b) <+> c = a <+> (b <+> c)
 class APlus' f where
   (<+>) :: f a -> f a -> f a
 
 
+--    a   <+>  zero  =  a
+--  zero  <+>    b   =  b
 class APlus' f => AZero' f where
   zero :: f a
 
 
 -- see http://www.haskell.org/haskellwiki/MonadPlus_reform_proposal
---   MonadOr    ==>>  AOr'
---   MonadPlus  ==>>  APlus'
---   MonadZero  ==>>  AZero'
---   except that the class hierarchy should be arranged
---   similar to Semigroup/Monoid, instead of the way given
--- Left catch
+-- pure a <||> x = pure a
 class APlus' f => AOr' f where
   (<||>) :: f a -> f a -> f a
+
+
+-- distributive ... how can this be expressed?
+class AZero' f => And' f where
+  (<&&>) :: f a -> f a -> f a
   
   
 class Switch' f where
@@ -123,9 +128,16 @@ class Foldable' t where
   
   
 class (Functor' t, Foldable' t) => Traversable' t where
-  -- call this 'commute' instead of 'sequenceA'
-  --   so that it's not a false cognate with 'sequence'
+  -- law 1.  traverse Identity = Identity
+  -- law 2.  traverse (Compose . fmap g . f) = Compose . fmap (traverse g) . traverse f
+  --    (see Data.Functor.Compose)
+  
+  -- 'commute' instead of 'sequenceA': not false cognate with 'sequence'
   commute :: (Pointed' f, Applicative' f) => t (f a) -> f (t a)
+  traverse :: (Pointed' f, Applicative' f) => (a -> f b) -> t a -> f (t b)
+
+  commute = traverse id
+  traverse f = commute . fmap f
   
   
 -- -------------------------------
@@ -172,7 +184,3 @@ foldMap f = foldr (\e base -> f e <|> base) empty
 
 fold :: (Foldable' t, Monoid' m) => t m -> m  
 fold = foldr (<|>) empty
-
-
-traverse :: (Pointed' f, Applicative' f, Traversable' t) => (a -> f b) -> t a -> f (t b)
-traverse f = commute . fmap f

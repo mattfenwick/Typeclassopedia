@@ -80,7 +80,8 @@ instance Foldable' ((,) z) where
   foldr f base (_, x) = f x base
   
 instance Traversable' ((,) z) where
-  commute (z, y) = fmap ((,) z) y
+  commute      (z, y)  =  fmap ((,) z) y
+  traverse  f  (x, y)  =  pure (,) <*> pure x <*> f y
 
 
 
@@ -123,8 +124,10 @@ instance Foldable' [] where
   foldr f base (x:xs)   = f x (foldr f base xs)
   
 instance Traversable' [] where
-  commute []       = pure []
-  commute (f:fs)   = fmap (:) f <*> commute fs
+  commute    []      =  pure []
+  commute    (f:fs)  =  pure (:) <*> f   <*> commute fs
+  traverse _ []      =  pure []
+  traverse f (x:xs)  =  pure (:) <*> f x <*> traverse f xs
 
 
 
@@ -160,8 +163,10 @@ instance Foldable' Seq where
   foldr f base (Cons x xs) = f x (foldr f base xs)
 
 instance Traversable' Seq where
-  commute (End x)     = fmap pure x
-  commute (Cons x xs) = fmap Cons x <*> commute xs
+  commute    (End x)      =  fmap pure x
+  commute    (Cons x xs)  =  fmap Cons x <*> commute xs
+  traverse f (End x)      =  pure End <*> f x
+  traverse f (Cons x xs)  =  pure Cons <*> f x <*> traverse f xs
 
   
   
@@ -208,8 +213,10 @@ instance Foldable' Maybe where
   foldr f base (Just x) = f x base
   
 instance Traversable' Maybe where
-  commute Nothing  = pure Nothing
-  commute (Just x) = fmap Just x
+  commute      Nothing   =  pure Nothing
+  commute      (Just x)  =  fmap Just x
+  traverse  _  Nothing   =  pure Nothing
+  traverse  f  (Just x)  =  pure Just <*> f x
 
 
 
@@ -253,8 +260,10 @@ instance Foldable' (Either a) where
   foldr f base (Right x) = f x base
   
 instance Traversable' (Either m) where
-  commute (Left y)  = pure (Left y)
-  commute (Right x) = fmap Right x
+  commute      (Left x)   =  pure (Left x)
+  commute      (Right r)  =  fmap Right r
+  traverse  _  (Left x)   =  pure (Left x)
+  traverse  f  (Right r)  =  pure Right <*> f r
 
 
 
@@ -287,7 +296,8 @@ instance Foldable' Id where
   foldr f base (Id x) = f x base
   
 instance Traversable' Id where
-  commute (Id x) = fmap Id x
+  commute      (Id x)  =  fmap Id x
+  traverse  f  (Id x)  =  pure Id   <*>  f x
 
 
 
@@ -309,7 +319,6 @@ instance Monad' (State s) where
   -- :: s -> (s, s -> (s, a)) -> s -> (s, a)
   join (State s1) = State (\s -> let (s', s2) = s1 s
                                  in getState s2 s')
-
 
 
 
@@ -376,8 +385,10 @@ instance Foldable' BinTree where
                               in foldr f base' l
 
 instance Traversable' BinTree where
-  commute (Leaf x)    = fmap Leaf x 
-  commute (Node l r)  = fmap Node (commute l) <*> (commute r)
+  commute      (Leaf x)    =  fmap Leaf x 
+  commute      (Node l r)  =  fmap Node (commute l) <*> (commute r)
+  traverse  f  (Leaf x)    =  pure Leaf <*> f x
+  traverse  f  (Node l r)  =  pure Node <*> traverse f l <*> traverse f r
 
 
 
@@ -421,7 +432,9 @@ instance Foldable' Tree where
       foldTree = foldr
 
 instance Traversable' Tree where
-  commute (Tree x bs) = fmap Tree x <*> (traverse commute bs)
+  commute      (Tree x bs)  =  fmap Tree x <*> (traverse commute bs)
+  traverse  f  (Tree x bs)  =  pure Tree <*> f x <*> traverse (traverse f) bs
+  -- wow ... traverse (traverse f) bs ... not sure what that means!
 
 
 
@@ -459,7 +472,26 @@ instance Foldable' MyTree where
                                 in foldr f base'' l
 
 instance Traversable' MyTree where
-  commute Empty = pure Empty
-  commute (Branch x l r) = fmap Branch x <*> commute l <*> commute r
+  commute      Empty           =  pure Empty
+  commute      (Branch x l r)  =  fmap Branch x <*> commute l <*> commute r
+  traverse  _  Empty           =  pure Empty
+  traverse  f  (Branch x l r)  =  pure Branch <*> f x 
+                                              <*> traverse f l 
+                                              <*> traverse f r
 
 
+
+instance (Functor' f, Functor' g) => Functor' (Compose f g) where
+  fmap f = Compose . fmap (fmap f) . getCompose
+
+instance (Pointed' f, Pointed' g) => Pointed' (Compose f g) where
+  pure = Compose . pure . pure
+
+instance (Pointed' f, Applicative' f, Applicative' g) => Applicative' (Compose f g) where
+  f <*> x = Compose (pure (<*>) <*> getCompose f <*> getCompose x)
+
+instance Foldable' (Compose f g) where
+  foldr = error "oops!  too lazy"
+
+instance (Traversable' f, Traversable' g) => Traversable' (Compose f g) where
+  traverse f x = pure Compose <*> traverse (traverse f) (getCompose x)
