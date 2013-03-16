@@ -53,7 +53,7 @@ class Monad' m => MonadState s m | m -> s where
 
 
 class (Monad' m, Monoid' w) => MonadWriter w m | m -> w where
-  write :: w -> m (w, ())
+  write :: w -> m ()
 
 
 -- ---------------------------------------------------------------------

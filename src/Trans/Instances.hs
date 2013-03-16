@@ -48,7 +48,8 @@ instance MonadTrans' ListT where
 -- ---------------------------------------------------------------------
 
 instance (Monoid' w, Monad' m) => MonadWriter w (WriterT w m) where
-  write x = pure (x, ())
+  -- w -> m (w, ())
+  write x = WriterT (pure (x, ()))
 
 instance MonadWriter w m => MonadWriter w (StateT s m) where
   -- w -> StateT s m (w, ())
