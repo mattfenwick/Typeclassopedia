@@ -154,8 +154,13 @@ instance (Applicative' m, Pointed' m, Semigroup' w) => Applicative' (WriterT w m
 instance (Monad' m, Monoid' w) => Monad' (WriterT w m) where
   join = join2
 
--- instance Semigroup' m => Semigroup' (WriterT w m) where
---  WriterT x <|> WriterT y = 
+instance APlus' m => APlus' (WriterT w m) where
+  -- WriterT w m a -> WriterT w m a -> WriterT w m a
+  -- m (w, a) -> m (w, a) -> m (w, a)
+  WriterT x  <+>  WriterT y  =  WriterT (x <+> y)
+  
+instance AZero' m => AZero' (WriterT w m) where
+  zero = WriterT zero
 
 say :: Pointed' m => w -> WriterT w m ()
 -- say :: w -> (w, ())

@@ -37,12 +37,12 @@ instance MonadTrans' (StateT s) where
 instance MonadTrans' (ErrorT e) where
   -- m a -> ErrorT e m a
   -- m a -> m (Either e a)
-  lift m = ErrorT (m >>= (pure . Right))
+  lift = ErrorT . fmap Right
 
 instance MonadTrans' ListT where
   -- m a -> ListT m a
   -- m a -> m [a]
-  lift m = ListT (m >>= \x -> pure [x])
+  lift = ListT . fmap (:[])
 
 
 -- ---------------------------------------------------------------------
@@ -55,6 +55,9 @@ instance MonadWriter w m => MonadWriter w (StateT s m) where
   -- w -> StateT s m (w, ())
   -- w -> s -> m (s, (w, ())
   write = lift . write
+  
+instance MonadWriter w m => MonadWriter w (MaybeT m) where
+  write = lift . write 
 
 
 
