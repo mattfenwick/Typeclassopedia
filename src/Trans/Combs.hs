@@ -1,20 +1,10 @@
-{-# LANGUAGE NoMonomorphismRestriction, FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts #-}
 module Trans.Combs (
 
     item
   , check
   , satisfy
   , literal
-  
-  , (*>)
-  , (<*)
-  , many
-  , some
-  , optional
-  , optionalM
-  
-  , sepBy0
-  , sepBy1
   
   , end
   , not1
@@ -25,12 +15,12 @@ module Trans.Combs (
 ) where
 
 import Classes
-import Datums
-import Instances
+import Combinators
 import Prelude hiding (foldr, foldl, fmap, (>>=), fail, (>>))
 import Trans.MTrans
 
 
+item :: (AZero' m, MonadState [t] m) => m t
 item = 
     get >>= \s -> case s of []     -> zero; 
                             (x:xs) -> put xs >> pure x
@@ -46,34 +36,6 @@ satisfy p = check p item
 
 literal :: (Eq a, MonadState [a] m, AZero' m) => a -> m a
 literal tok = satisfy (== tok)
-
-(*>) :: Applicative' f => f a -> f b -> f b
-l *> r = fmap (flip const) l <*> r 
-
-(<*) :: Applicative' f => f a -> f b -> f a
-l <* r = fmap const l <*> r
-
-many :: (Pointed' f, APlus' f, Applicative' f) => f a -> f [a]
-many p = some p <+> pure []
-
-some :: (Pointed' f, APlus' f, Applicative' f) => f a -> f [a]
-some p = fmap (:) p <*> many p
-
-optional :: (Pointed' f1, AZero' f1, Pointed' f, Functor' f, APlus' f) =>
-     f a -> f (f1 a)
-optional p = fmap pure p  <+>  pure zero
-
-optionalM :: (Pointed' f, APlus' f) => a -> f a -> f a
-optionalM x p = p <+> pure x
-
-sepBy1 :: (Pointed' f, Applicative' f, APlus' f) => f a -> f a1 -> f ([a], [a1])
-sepBy1 p s = fmap g p <*> (liftA2 f s (sepBy1 p s) <+> pure ([], []))
-  where 
-    f a (b, c) = (b, a:c)
-    g x (y, z) = (x:y, z)
-    
-sepBy0 :: (Pointed' f, Applicative' f, APlus' f) => f a -> f a1 -> f ([a], [a1])
-sepBy0 p s = sepBy1 p s <+> pure ([], [])
 
 end :: (Switch' f, AZero' f, MonadState [a] f) => f ()
 end = switch item
