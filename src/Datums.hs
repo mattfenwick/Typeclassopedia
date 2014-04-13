@@ -24,6 +24,10 @@ module Datums (
   
   , Compose (..)
 
+  , Reader (..)
+  , ask
+  , local
+    
 ) where
 
 
@@ -111,3 +115,18 @@ showMyTree t = help 0 t
 newtype Compose f g a 
     = Compose {getCompose :: f (g a)}
   deriving (Show)
+
+
+
+newtype Reader a b
+    = Reader {getReader :: (a -> b)}
+
+instance Show (Reader a b) where
+    show (Reader _) = "Reader (function)"
+
+ask :: Reader a a
+ask = Reader id
+
+local :: (r -> r) -> Reader r b -> Reader r b
+local f m = Reader (\r -> getReader m (f r))
+

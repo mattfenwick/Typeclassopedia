@@ -45,9 +45,32 @@ instance Monoid' a => Monoid' ((->) z a) where
 
 instance Foldable' ((->) z) where
   -- (a -> b -> b) -> b -> (z -> a) -> b
---  foldr f base g = f (g empty) base -- if we allow a monoid constraint on z
---  foldr _ base _ = base
+  --  foldr f base g = f (g empty) base -- if we allow a monoid constraint on z
+  --  foldr _ base _ = base
   foldr _ = const
+
+
+
+
+instance Functor' (Reader z) where
+  -- (a -> b) -> Reader z a -> Reader z b
+  -- (a -> b) -> (z -> a) -> (z -> b)
+  fmap f (Reader g) = Reader (f . g)
+
+instance Applicative' (Reader z) where
+  -- Reader z (a -> b) -> Reader z a -> Reader z b
+  -- (z -> a -> b) -> (z -> a) -> (z -> b)
+  Reader f <*> Reader g = Reader (\x -> f x (g x))
+
+instance Pointed' (Reader z) where
+  -- a -> Reader z a
+  -- a -> (z -> a)
+  pure = Reader . const
+
+instance Monad' (Reader z) where
+  -- Reader z (Reader z a) -> Reader z a
+  -- (z -> z -> a) -> (z -> a)
+  join (Reader f) = Reader (\x -> getReader (f x) x)
 
 
 

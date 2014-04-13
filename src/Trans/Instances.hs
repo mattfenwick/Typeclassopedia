@@ -5,7 +5,7 @@ module Trans.Instances (
 
 
 import Classes
-import Datums
+import Datums (State(..), set, fetch)
 import Instances
 import Prelude hiding (foldr, foldl, fmap, (>>=), fail, (>>))
 import Trans.MTrans
@@ -44,6 +44,11 @@ instance MonadTrans' ListT where
   -- m a -> m [a]
   lift = ListT . fmap (:[])
 
+instance MonadTrans' (ReaderT r) where
+  -- m a -> ReaderT r m a
+  -- m a -> (r -> m a)
+  lift = ReaderT . const
+
 
 -- ---------------------------------------------------------------------
 
@@ -58,6 +63,15 @@ instance MonadWriter w m => MonadWriter w (StateT s m) where
   
 instance MonadWriter w m => MonadWriter w (MaybeT m) where
   write = lift . write 
+
+instance MonadWriter w m => MonadWriter w (ReaderT r m) where
+  write = lift . write
+
+instance MonadWriter w m => MonadWriter w (ErrorT e m) where
+  write = lift . write
+
+instance MonadWriter w m => MonadWriter w (ListT m) where
+  write = lift . write
 
 
 
@@ -85,6 +99,22 @@ instance (MonadTrans' t, MonadState s m, Monad' (t m)) => MonadState s (t m) whe
   -- s -> t -> (s, ())
   put  =  lift . put
 -}
+
+instance MonadState s m => MonadState s (ReaderT r m) where
+  get = lift get
+  put = lift . put
+
+instance MonadState s m => MonadState s (ErrorT e m) where
+  get = lift get
+  put = lift . put
+
+instance MonadState s m => MonadState s (ListT m) where
+  get = lift get
+  put = lift . put
+
+instance (MonadState s m, Monoid' w) => MonadState s (WriterT w m) where
+  get = lift get
+  put = lift . put
 
 
 -- ---------------------------------------------------------------------
@@ -126,3 +156,46 @@ instance MonadError e m => MonadError e (StateT s m) where
 instance MonadError e m => MonadError e (ListT m) where
   throwE      =  lift . throwE
   catchE m f  =  ListT $ catchE (getListT m) (getListT . f)
+
+instance MonadError e m => MonadError e (ReaderT r m) where
+  throwE      =  lift . throwE
+  catchE m f  =  ReaderT (\r -> catchE (getReaderT m r) (\e -> getReaderT (f e) r))
+
+instance (MonadError e m, Monoid' w) => MonadError e (WriterT w m) where
+  throwE      =  lift . throwE
+  catchE m f  =  WriterT $ catchE (getWriterT m) (getWriterT . f)
+
+
+-- ---------------------------------------------------------------------
+
+instance Monad' m => MonadReader r (ReaderT r m) where
+  -- r -> m r
+  ask                 = ReaderT pure
+  local f (ReaderT g) = ReaderT (g . f)
+
+-- ErrorT
+instance MonadReader r m => MonadReader r (ErrorT e m) where
+  -- ErrorT e m a
+  -- m (Either e a)
+  ask = lift ask
+  -- (r -> r) -> m a -> m a
+  -- (r -> r) -> ErrorT e m a -> ErrorT e m a
+  local f (ErrorT m) = ErrorT (local f m)
+
+instance MonadReader r m => MonadReader r (MaybeT m) where
+  ask = lift ask
+  local f (MaybeT m) = MaybeT (local f m)
+
+instance MonadReader r m => MonadReader r (StateT s m) where
+  ask = lift ask
+  -- (r -> r) -> (s -> m (s, a)) -> (s -> m (s, a))
+  local = \f m -> StateT (\s -> local f (getStateT m s))
+
+instance MonadReader r m => MonadReader r (ListT m) where
+  ask = lift ask
+  local f (ListT m) = ListT (local f m)
+
+instance (MonadReader r m, Monoid' w) => MonadReader r (WriterT w m) where
+  ask = lift ask
+  local f (WriterT m) = WriterT (local f m)
+

@@ -19,6 +19,9 @@ module Trans.MTrans (
   , StateT(..)
   , MonadState(..)
   
+  , ReaderT(..)
+  , MonadReader(..)
+
   , ErrorT(..)
   , MonadError(..)
   
@@ -54,6 +57,11 @@ class Monad' m => MonadState s m | m -> s where
 
 class (Monad' m, Monoid' w) => MonadWriter w m | m -> w where
   write :: w -> m ()
+
+
+class Monad' m => MonadReader r m | m -> r where
+  ask :: m r
+  local :: (r -> r) -> m a -> m a
 
 
 -- ---------------------------------------------------------------------
@@ -218,6 +226,52 @@ instance AOr' m => AOr' (StateT s m) where
 
 
 
+
+newtype ReaderT r m a
+    = ReaderT {getReaderT :: r -> m a}
+
+instance Functor' m => Functor' (ReaderT r m) where
+  -- (a -> b) -> (r -> m a) -> (r -> m b)
+  fmap f (ReaderT g) = ReaderT (fmap f . g)
+
+instance Pointed' m => Pointed' (ReaderT r m) where
+  -- a -> r -> m a
+  pure x = ReaderT (pure . const x)
+
+instance (Pointed' m, Applicative' m) => Applicative' (ReaderT r m) where
+  -- (r -> m (a -> b)) -> (r -> m a) -> (r -> m b)
+  ReaderT f <*> ReaderT x = ReaderT (\r -> f r <*> x r)
+
+instance Monad' m => Monad' (ReaderT r m) where
+  -- (r -> m (r -> m a)) -> r -> m a
+  join (ReaderT m) = ReaderT f
+    where
+      f r = 
+          m r >>= \(ReaderT g) -> 
+          g r
+
+instance Semigroup' (m a) => Semigroup' (ReaderT r m a) where
+  -- (r -> m a) -> (r -> m a) -> (r -> m a)
+  ReaderT f <|> ReaderT g = ReaderT (\r -> f r <|> g r)
+
+instance Monoid' (m a) => Monoid' (ReaderT r m a) where
+  -- r -> m a
+  empty = ReaderT (const empty)
+
+instance APlus' m => APlus' (ReaderT r m) where
+  -- (r -> m a) -> (r -> m a) -> (r -> m a)
+  ReaderT f <+> ReaderT g  =  ReaderT (\r -> f r <+> g r)
+
+instance AZero' m => AZero' (ReaderT r m) where
+  -- r -> m a
+  zero = ReaderT (const zero)
+
+instance AOr' m => AOr' (ReaderT r m) where
+  ReaderT x  <||>  ReaderT y  =  ReaderT (\r -> x r <||> y r)
+
+
+
+
 newtype ErrorT e m a
     = ErrorT {getErrorT :: m (Either e a)}
 
@@ -298,3 +352,4 @@ instance Monad' m => AOr' (ListT m) where
       x = l >>= \y -> case y of
                            []  ->  r
                            _   ->  pure y
+
