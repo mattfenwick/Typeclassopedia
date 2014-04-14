@@ -293,17 +293,15 @@ instance (Pointed' m, Applicative' m) => Applicative' (ErrorT e m) where
 instance (Monad' m) => Monad' (ErrorT e m) where
   join = join2
 
-instance Applicative' m => APlus' (ErrorT e m) where
-  -- m (Either e a) -> m (Either e a) -> m (Either e a)
-  ErrorT l  <+>  ErrorT r  =  ErrorT (fmap (<+>) l <*> r)
+instance APlus' m => APlus' (ErrorT e m) where
+  ErrorT l  <+>  ErrorT r  =  ErrorT (l <+> r)
 
-instance (Monoid' e, Applicative' m, Pointed' m) => AZero' (ErrorT e m) where
-  -- m (Either e a)
-  zero = ErrorT (pure zero)
+instance AZero' m => AZero' (ErrorT e m) where
+  zero = ErrorT zero
 
 -- left bias success, if they're both successful
 -- left bias failure, if they both fail
-instance Monad' m => AOr' (ErrorT e m) where
+instance (APlus' m, Monad' m) => AOr' (ErrorT e m) where
   ErrorT l  <||>  ErrorT r  =  ErrorT x
     where 
       x = l >>= \y -> case y of
