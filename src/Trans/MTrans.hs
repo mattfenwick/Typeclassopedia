@@ -11,6 +11,7 @@ module Trans.MTrans (
   , MonadTrans'(..)
   
   , MaybeT(..)
+  , MonadMaybe(..)
 
   , WriterT(..)
   , say
@@ -18,6 +19,7 @@ module Trans.MTrans (
 
   , StateT(..)
   , MonadState(..)
+  , update
   
   , ReaderT(..)
   , MonadReader(..)
@@ -32,6 +34,7 @@ module Trans.MTrans (
 import Classes
 import Datums
 import Instances
+import Combinators ((*>))
 import Prelude hiding (foldr, foldl, fmap, (>>=), fail, (>>))
 
 
@@ -54,6 +57,9 @@ class Monad' m => MonadState s m | m -> s where
   get :: m s
   put :: s -> m ()
 
+update :: MonadState s m => (s -> s) -> m ()
+update f = get >>= (put . f)
+
 
 class (Monad' m, Monoid' w) => MonadWriter w m | m -> w where
   write :: w -> m ()
@@ -62,6 +68,10 @@ class (Monad' m, Monoid' w) => MonadWriter w m | m -> w where
 class Monad' m => MonadReader r m | m -> r where
   ask :: m r
   local :: (r -> r) -> m a -> m a
+
+
+class Monad' m => MonadMaybe m where
+  none :: m a
 
 
 -- ---------------------------------------------------------------------

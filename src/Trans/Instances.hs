@@ -74,6 +74,29 @@ instance MonadWriter w m => MonadWriter w (ListT m) where
   write = lift . write
 
 
+-- ---------------------------------------------------------------------
+
+instance MonadMaybe Maybe where
+  none          = Nothing
+
+instance Monad' m => MonadMaybe (MaybeT m) where
+  -- m (Maybe a)
+  none            = MaybeT (pure Nothing)
+
+instance MonadMaybe m => MonadMaybe (StateT s m) where
+  none = lift none
+  
+instance MonadMaybe m => MonadMaybe (ErrorT e m) where
+  none = lift none
+
+instance MonadMaybe m => MonadMaybe (ReaderT r m) where
+  none = lift none
+
+instance (MonadMaybe m, Monoid' w) => MonadMaybe (WriterT w m) where
+  none = lift none
+
+instance MonadMaybe m => MonadMaybe (ListT m) where
+  none = lift none
 
 -- ---------------------------------------------------------------------
 
