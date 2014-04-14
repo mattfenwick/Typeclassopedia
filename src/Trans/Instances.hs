@@ -77,11 +77,11 @@ instance MonadWriter w m => MonadWriter w (ListT m) where
 -- ---------------------------------------------------------------------
 
 instance MonadMaybe Maybe where
-  none          = Nothing
+  none = Nothing
 
 instance Monad' m => MonadMaybe (MaybeT m) where
   -- m (Maybe a)
-  none            = MaybeT (pure Nothing)
+  none = MaybeT (pure Nothing)
 
 instance MonadMaybe m => MonadMaybe (StateT s m) where
   none = lift none
