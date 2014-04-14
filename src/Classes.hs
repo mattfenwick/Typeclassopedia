@@ -114,7 +114,8 @@ class APlus' f => AOr' f where
   (<||>) :: f a -> f a -> f a
 
 
--- distributive ... how can this be expressed?
+-- distributive: not sure how to express this, but here's a whack at it:
+-- a <&&> (b ?? c)  =  (a <&&> b) ?? (a <&&> c)
 class AZero' f => And' f where
   (<&&>) :: f a -> f a -> f a
   
