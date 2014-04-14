@@ -136,6 +136,13 @@ instance Monad' m => AOr' (MaybeT m) where
                            Nothing  ->  r
                            Just y   ->  pure x
 
+instance Monad' m => Switch' (MaybeT m) where
+  -- MaybeT m a -> MaybeT m ()
+  -- m (Maybe a) -> m (Maybe ())
+  switch (MaybeT m) = MaybeT q 
+    where
+      q = m >>= (pure . switch)
+
 
 
 
@@ -170,10 +177,15 @@ instance APlus' m => APlus' (WriterT w m) where
 instance AZero' m => AZero' (WriterT w m) where
   zero = WriterT zero
 
+instance (Switch' m, Functor' m, Monoid' w) => Switch' (WriterT w m) where
+  -- m (w, a) -> m (w, ())
+  switch (WriterT m) = WriterT (fmap (const (empty, ())) (switch m))
+
 say :: Pointed' m => w -> WriterT w m ()
 -- say :: w -> (w, ())
 -- say l = (l, ())
 say l = WriterT (pure (l, ()))
+
 
 
 
@@ -224,6 +236,13 @@ instance AZero' m => AZero' (StateT s m) where
 instance AOr' m => AOr' (StateT s m) where
   StateT l  <||>  StateT r  =  StateT (\s -> l s <||> r s)
 
+instance (Functor' m, Switch' m) => Switch' (StateT s m) where
+  -- StateT s m a -> StateT s m ()
+  -- (s -> m (s, a)) -> s -> m (s, ())
+  switch (StateT f) = StateT g
+    where
+      g s = fmap (const (s, ())) (switch (f s))
+
 
 
 
@@ -269,6 +288,10 @@ instance AZero' m => AZero' (ReaderT r m) where
 instance AOr' m => AOr' (ReaderT r m) where
   ReaderT x  <||>  ReaderT y  =  ReaderT (\r -> x r <||> y r)
 
+instance (Switch' m, Functor' m) => Switch' (ReaderT r m) where
+  -- (r -> m a) -> (r -> m ())
+  switch (ReaderT f) = ReaderT (\r -> fmap (const ()) (switch $ f r))
+
 
 
 
@@ -309,7 +332,11 @@ instance (APlus' m, Monad' m) => AOr' (ErrorT e m) where
                                                        Left _  ->  pure y;
                                                        Right _ ->  pure z;
                            Right _ -> pure y;
-  
+
+instance (Functor' m, Switch' m) => Switch' (ErrorT e m) where
+  -- m (Either e a) -> m (Either e ())
+  switch (ErrorT m) = ErrorT (fmap (const (Right ())) $ switch m)
+
 
 
 
@@ -350,4 +377,8 @@ instance Monad' m => AOr' (ListT m) where
       x = l >>= \y -> case y of
                            []  ->  r
                            _   ->  pure y
+
+instance (Switch' m, Functor' m) => Switch' (ListT m) where
+  -- m [a] -> m [()]
+  switch (ListT m) = ListT (fmap (const [()]) $ switch m)
 
