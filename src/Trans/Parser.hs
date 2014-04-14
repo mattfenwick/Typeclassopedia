@@ -79,38 +79,10 @@ oneOf = any . map literal
 not1 :: P a -> P Char
 not1 p = switch p *> item
 
-{-
-Grammar:
+str :: [Char] -> P [Char]
+str = commute . map literal
 
-Whitespace  ::=  `/[ \t\n\r\f]+/`
-
-Comment     ::=  `/;[^\n\r\f]*/`
-
-Number      ::=  `/\d+/`
-
-Symbol      ::=  `/\w+/`
-
-List        ::=  '('  Form(*)  ')'
-
-Form        ::=  Number  |  Symbol  |  List
-
--}
-
-whitespace :: P String
-whitespace = many1 (oneOf " \t\n\r\f")
-
-comment :: P String
-comment = pure (:) <*> literal ';' <*> many0 (not1 (oneOf "\n\r\f"))
-
-junk = (whitespace <+> comment) >>= \x -> write [x]
-
-number :: P String
-number = many1 (oneOf "0123456789")
-
-symbol :: P String
-symbol = many1 (satisfy (\c -> c <= 'z' && c >= 'a'))
-
-tok p = p <* many0 junk
+-- ----------------------
 
 pushFrame message p =
     getPos >>= \pos ->
@@ -121,24 +93,12 @@ err =
 
 commit p = p <+> err
 
-list_ = 
-    tok (literal '(')   *> 
-    many0 form         <* 
-    pushFrame ")" (commit $ tok (literal ')'))
+-- why doesn't this compile?
+-- cut = flip (pushFrame . commit)
+cut :: String -> P a -> P a
+cut message p = pushFrame message (commit p)
 
-list :: P [Form]
-list = pushFrame "list" list_ 
-
-data Form
-  = Num  String
-  | Sym  String
-  | List [Form]
-  deriving (Show)
-  
-form = 
-    fmap Num  (tok number) <+> 
-    fmap Sym  (tok symbol) <+> 
-    fmap List list
+-- -------------------------
 
 runParser :: P a -> String -> Maybe (Either [ErrorFrame] ([String], ((Int, Int), (String, a))))
 runParser p xs = getErrorT (getWriterT (getReaderT (getStateT (getStateT p xs) (1, 1)) []))
@@ -159,4 +119,99 @@ data ParseResult a
   | E [ErrorFrame]
   | Z
   deriving (Show)
+
+-- -------------------
+
+{-
+Grammar:
+
+Whitespace  ::=  `/[ \t\n\r\f]+/`
+
+Comment     ::=  `/;[^\n\r\f]*/`
+
+Number      ::=  `/\d+/`
+
+Symbol      ::=  `/\w+/`
+
+List        ::=  '['  Form(*)  ']'
+
+App         ::=  '('  Form  Form(*)  ')'
+
+Def         ::=  '{'  define  Symbol  Form  '}'
+
+Lambda      ::=  '{'  lambda  '['  Symbol(*)  ']'  Form  '}'
+
+Cond        ::=  '{'  cond  '{'  ('{'  Form  Form  '}')(*)  '}'  Form  '}'
+
+Form        ::=  Number  |  Symbol  |  List  |  App  |  Lambda  |  Cond  |  Def
+
+File        ::=  Form(*)
+
+-}
+
+whitespace :: P String
+whitespace = many1 (oneOf " \t\n\r\f")
+
+comment :: P String
+comment = pure (:) <*> literal ';' <*> many0 (not1 (oneOf "\n\r\f"))
+
+junk = (whitespace <+> comment) >>= \x -> write [x]
+
+number :: P String
+number = many1 (oneOf "0123456789")
+
+symbol :: P String
+symbol = many1 (satisfy (\c -> c <= 'z' && c >= 'a'))
+
+tok p = p <* many0 junk
+
+list_ = 
+    tok (literal '[')   *> 
+    many0 form         <* 
+    (cut "]" $ tok (literal ']'))
+
+list :: P [Form]
+list = pushFrame "list" list_ 
+
+app_ = 
+    pure (\a b c d -> (b, c)) <*>
+    tok (literal '(')         <*>
+    pushFrame "operator" form <*>
+    many0 form                <*>
+    pushFrame ")" (tok $ literal ')') 
+
+app :: P (Form, [Form])
+app = pushFrame "application" app_
+
+data Form
+  = Num  String
+  | Sym  String
+  | List [Form]
+  | App Form [Form]
+  | Lambda [String] Form
+  | Cond [(Form, Form)] Form
+  | Def String Form
+  deriving (Show)
+  
+form = 
+    fmap Num  (tok number) <+> 
+    fmap Sym  (tok symbol) <+> 
+    fmap List list         <+>
+    special                <+>
+    fmap (uncurry App) app
+
+def :: P Form
+def = pushFrame "define" (pure (\_ -> Def) <*> tok (str "define") <*> cut "symbol" (tok symbol) <*> cut "form" form)
+
+lambda :: P Form
+lambda = undefined
+
+cond :: P Form
+cond = undefined
+
+special :: P Form
+special = pushFrame "special form" (tok (literal '{') *> cut "body" (def <+> lambda <+> cond) <* cut "}" (tok $ literal '}'))
+
+file :: P [Form]
+file = many0 junk *> many0 form
 
