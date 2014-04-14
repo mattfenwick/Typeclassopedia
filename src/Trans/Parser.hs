@@ -112,11 +112,22 @@ symbol = many1 (satisfy (\c -> c <= 'z' && c >= 'a'))
 
 tok p = p <* many0 junk
 
+pushFrame message p =
+    getPos >>= \pos ->
+    local ((message, pos) :) p
+
+err = 
+    ask >>= throwE
+
+commit p = p <+> err
+
+list_ = 
+    tok (literal '(')   *> 
+    many0 form         <* 
+    pushFrame ")" (commit $ tok (literal ')'))
+
 list :: P [Form]
-list = pure (\_ x _ -> x) <*> 
-       tok (literal '(')  <*> 
-       many0 form         <*> 
-       tok (literal ')')
+list = pushFrame "list" list_ 
 
 data Form
   = Num  String
