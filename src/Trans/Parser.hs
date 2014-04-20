@@ -200,14 +200,36 @@ form =
     special                <+>
     fmap (uncurry App) app
 
+oc = tok (literal '{')
+cc = tok (literal '}')
+
 def :: P Form
-def = pushFrame "define" (pure (\_ -> Def) <*> tok (str "define") <*> cut "symbol" (tok symbol) <*> cut "form" form)
+def = pushFrame "define" (pure (\_ -> Def)          <*> 
+                          tok (str "define")        <*> 
+                          cut "symbol" (tok symbol) <*> 
+                          cut "form" form)
 
 lambda :: P Form
-lambda = undefined
+lambda = pushFrame "lambda" (pure (\_ _ s _ f -> Lambda s f) <*>
+                             tok (str "lambda")              <*>
+                             oc                              <*>
+                             many0 (tok symbol)              <*>
+                             cut "}" cc                      <*>
+                             cut "form" form)
+
+condBranch = pushFrame "cond branch" (pure (\_ a b _ -> (a, b)) <*> 
+                                      oc                        <*> 
+                                      cut "predicate" form      <*> 
+                                      cut "result" form         <*> 
+                                      cut "}" cc)
 
 cond :: P Form
-cond = undefined
+cond = pushFrame "cond" (pure (\_ _ cs _ f -> Cond cs f) <*>
+                         tok (str "cond") <*>
+                         oc               <*>
+                         many0 condBranch <*>
+                         cut "}" cc       <*>
+                         cut "else" form)
 
 special :: P Form
 special = pushFrame "special form" (tok (literal '{') *> cut "body" (def <+> lambda <+> cond) <* cut "}" (tok $ literal '}'))
